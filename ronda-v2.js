@@ -1349,65 +1349,163 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // ===================== OBTENER TODAS LAS RONDAS SIN LIMITE =====================
+  async function obtenerTodasLasRondas() {
+    const todasRondas = [];
+    let ultimoDoc = null;
+    const PAGE_SIZE = 100;
+
+    while (true) {
+      let query = db.collection('Rondas_QR').orderBy('__name__').limit(PAGE_SIZE);
+      
+      if (ultimoDoc) {
+        query = query.startAfter(ultimoDoc);
+      }
+
+      const snapshot = await query.get();
+      
+      if (snapshot.empty) {
+        break; // No hay más documentos
+      }
+
+      snapshot.forEach(doc => {
+        todasRondas.push({ id: doc.id, data: doc.data() });
+      });
+
+      ultimoDoc = snapshot.docs[snapshot.docs.length - 1];
+
+      if (snapshot.docs.length < PAGE_SIZE) {
+        break; // Es la última página
+      }
+    }
+
+    return todasRondas;
+  }
+
+  // ===================== OBTENER TODOS LOS QR CODES SIN LIMITE =====================
+  async function obtenerTodosLosQRCodes() {
+    const todosQRs = [];
+    let ultimoDoc = null;
+    const PAGE_SIZE = 100;
+
+    while (true) {
+      let query = db.collection('QR_CODES').orderBy('__name__').limit(PAGE_SIZE);
+      
+      if (ultimoDoc) {
+        query = query.startAfter(ultimoDoc);
+      }
+
+      const snapshot = await query.get();
+      
+      if (snapshot.empty) {
+        break; // No hay más documentos
+      }
+
+      snapshot.forEach(doc => {
+        todosQRs.push({ id: doc.id, data: doc.data() });
+      });
+
+      ultimoDoc = snapshot.docs[snapshot.docs.length - 1];
+
+      if (snapshot.docs.length < PAGE_SIZE) {
+        break; // Es la última página
+      }
+    }
+
+    return todosQRs;
+  }
+
   // ===================== PROCESAR QR PARA RONDA MANUAL =====================
   async function procesarQRManual(codigoQR, modal) {
     try {
       console.log('[QR Manual] Procesando:', codigoQR);
+      console.log('[QR Manual] Usuario contexto:', userCtx);
 
       // Detener el video
       detenerVideoQR(modal);
 
       const overlay = mostrarOverlay('Buscando QR en la base de datos...');
 
-      // Buscar el QR en la colección Rondas_QR
-      const snapshot = await db.collection('Rondas_QR').get();
-      let puntoEncontrado = null;
-      let rondaEncontrada = null;
+      // Obtener TODOS los QR_CODES sin límite
+      const todosQRs = await obtenerTodosLosQRCodes();
+      let qrEncontrado = null;
+      
+      console.log('[QR Manual] 📊 Total de QR_CODES en BD:', todosQRs.length);
+      console.log('[QR Manual] 🔍 Comenzando búsqueda de QR...');
+      console.log('[QR Manual] Buscando QR:', codigoQR.trim());
+      console.log('[QR Manual] Usuario - Cliente:', userCtx.cliente, '| Unidad:', userCtx.unidad);
+      console.log('[QR Manual] ⚠️ BUSCANDO EN COLECCIÓN QR_CODES');
 
-      snapshot.forEach(doc => {
-        const ronda = doc.data();
+      let qrsRevisados = 0;
+      let datosDebug = [];
+      
+      todosQRs.forEach((doc, idx) => {
+        const qrData = doc.data;
+        qrsRevisados++;
         
-        // Validar que la ronda perteneza al cliente y unidad del usuario
-        if ((ronda.cliente || '').toUpperCase() !== userCtx.cliente ||
-            (ronda.unidad || '').toUpperCase() !== userCtx.unidad) {
-          return; // Saltar rondas que no pertenecen al usuario
-        }
+        const qrId = doc.id;
+        const qrLeido = codigoQR.trim();
         
-        const puntos = Array.isArray(ronda.puntosRonda)
-          ? ronda.puntosRonda
-          : Object.values(ronda.puntosRonda || {});
-
-        puntos.forEach((punto, idx) => {
-          if (punto.qrId && punto.qrId.trim() === codigoQR.trim()) {
-            puntoEncontrado = punto;
-            rondaEncontrada = ronda;
-          }
+        console.log(`\n[QR Manual] 📍 QR ${idx + 1}/${todosQRs.length} - ID: ${qrId}`);
+        console.log(`  Datos: ${JSON.stringify(qrData).substring(0, 100)}...`);
+        console.log(`  Comparando: "${qrLeido}" === "${qrId}" ? ${qrLeido === qrId}`);
+        
+        // Guardar debug de TODOS los QRs encontrados
+        datosDebug.push({
+          qrId: qrId,
+          coincide: qrLeido === qrId,
+          datos: qrData
         });
+        
+        if (qrLeido === qrId) {
+          console.log('      ✅ ✅ ✅ QR COINCIDE!!! ✅ ✅ ✅');
+          qrEncontrado = {
+            qrId: qrId,
+            nombre: qrData.nombre || qrData.name || qrData.nombrePunto || qrId,
+            punto: qrData,
+            cliente: qrData.cliente || userCtx.cliente,
+            unidad: qrData.unidad || userCtx.unidad
+          };
+        }
       });
+
+      console.log(`\n[QR Manual] 📊 Resumen de búsqueda:`);
+      console.log(`  - Total de QR_CODES en BD: ${todosQRs.length}`);
+      console.log(`  - QR_CODES revisados: ${qrsRevisados}`);
 
       ocultarOverlay();
 
-      if (!puntoEncontrado) {
-        console.error('[QR Manual] QR no encontrado en la BD o no pertenece a tu cliente/unidad');
+      if (!qrEncontrado) {
+        console.error('\n❌ [QR Manual] QR NO ENCONTRADO EN QR_CODES');
+        console.error('[QR Manual] Se buscó el QR:', codigoQR.trim());
+        console.error('[QR Manual] Total de QR_CODES revisados: ' + qrsRevisados);
+        
+        // Mostrar TODOS los QRs que existen para debugging
+        console.error('\n[QR Manual] 📋 TODOS LOS QR_CODES EN LA BD:');
+        datosDebug.forEach((item, i) => {
+          console.error(`  ${i + 1}. QR ID: "${item.qrId}" | Coincide: ${item.coincide}`);
+        });
+        
         mostrarErrorQRManual(modal);
         return;
       }
-
-      console.log('[QR Manual] ✅ QR encontrado:', puntoEncontrado.nombre);
-
-      const tienePreguntas = puntoEncontrado.questions && Object.keys(puntoEncontrado.questions).length > 0;
+      
+      console.log('\n✅ [QR Manual] PUNTO ENCONTRADO:', qrEncontrado.nombre);
+      
+      // Buscar si tiene preguntas/datos adicionales
+      const tienePreguntas = qrEncontrado.punto && qrEncontrado.punto.questions && Object.keys(qrEncontrado.punto.questions).length > 0;
 
       if (tienePreguntas) {
         if (modal) modal.remove();
         scannerActivo = false;
-        mostrarFormularioRondaManual(codigoQR, puntoEncontrado, rondaEncontrada);
+        mostrarFormularioRondaManualQR(codigoQR, qrEncontrado);
       } else {
         const overlay = mostrarOverlay('Guardando registro...');
-        await guardarRegistroRondaManual(codigoQR, puntoEncontrado, rondaEncontrada, {}, null);
+        await guardarRegistroRondaManualQR(qrEncontrado, {}, null);
         ocultarOverlay();
         if (modal) modal.remove();
         scannerActivo = false;
-        mostrarResumenRondaManual(puntoEncontrado);
+        mostrarResumenRondaManual(qrEncontrado.nombre);
       }
     } catch (e) {
       console.error('[Ronda Manual] Error procesando:', e);
@@ -1461,8 +1559,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // ===================== MOSTRAR FORMULARIO PARA RONDA MANUAL =====================
-  function mostrarFormularioRondaManual(codigoQR, punto, ronda) {
+  // ===================== MOSTRAR FORMULARIO PARA RONDA MANUAL - QR_CODES =====================
+  function mostrarFormularioRondaManualQR(codigoQR, qrEncontrado) {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -1482,73 +1580,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const header = document.createElement('div');
     header.style.cssText = `margin-bottom: 25px;`;
     header.innerHTML = `
-      <h2 style="margin: 0; color: #fff; font-size: 1.3em;">${punto.nombre}</h2>
-      <p style="margin: 8px 0 0 0; color: #ccc; font-size: 0.9em;">📝 Responde las preguntas</p>
+      <h2 style="margin: 0; color: #fff; font-size: 1.3em;">${qrEncontrado.nombre}</h2>
+      <p style="margin: 8px 0 0 0; color: #ccc; font-size: 0.9em;">📝 Registrar punto</p>
     `;
     container.appendChild(header);
 
-    // Preguntas
-    const respuestasObj = {};
-    let preguntas = punto.questions || {};
-
-    // Si preguntas es array, convertir a objeto
-    if (Array.isArray(preguntas)) {
-      const preguntasObj = {};
-      preguntas.forEach((p, idx) => {
-        preguntasObj[idx] = p;
-      });
-      preguntas = preguntasObj;
-    }
-
-    const preguntasArray = Object.entries(preguntas);
-
-    if (preguntasArray.length === 0) {
-      container.innerHTML += '<p style="color: #999; text-align: center;">Sin preguntas</p>';
-    } else {
-      preguntasArray.forEach(([qKey, pregunta]) => {
-        const fieldKey = `question_${qKey}`;
-        respuestasObj[fieldKey] = '';
-
-        const questionDiv = document.createElement('div');
-        questionDiv.style.cssText = `margin-bottom: 20px;`;
-        
-        const label = document.createElement('label');
-        label.style.cssText = `display: block; margin-bottom: 8px; color: #fff; font-weight: 500; font-size: 0.95em;`;
-        
-        let textoPreg = '';
-        if (typeof pregunta === 'string') {
-          textoPreg = pregunta;
-        } else if (pregunta.pregunta) {
-          textoPreg = pregunta.pregunta;
-        } else if (pregunta.requireQuestion) {
-          textoPreg = pregunta.requireQuestion;
-        } else {
-          textoPreg = JSON.stringify(pregunta).substring(0, 50);
-        }
-        
-        label.textContent = textoPreg || `Pregunta ${qKey}`;
-        questionDiv.appendChild(label);
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = 'Respuesta...';
-        input.dataset.fieldKey = fieldKey;
-        input.style.cssText = `
-          width: 100%; padding: 10px; background: #222; border: 1px solid #444;
-          border-radius: 4px; color: #fff; font-size: 0.95em; box-sizing: border-box;
-        `;
-        input.addEventListener('input', (e) => {
-          respuestasObj[fieldKey] = e.target.value;
-        });
-        questionDiv.appendChild(input);
-
-        container.appendChild(questionDiv);
-      });
-    }
-
     // Sección de Foto
     const fotoDiv = document.createElement('div');
-    fotoDiv.style.cssText = `margin-top: 25px; padding-top: 20px; border-top: 1px solid #444;`;
+    fotoDiv.style.cssText = `margin-top: 20px; padding-top: 20px; border-top: 1px solid #444;`;
     
     const fotoLabel = document.createElement('label');
     fotoLabel.style.cssText = `display: block; margin-bottom: 12px; color: #fff; font-weight: 500; font-size: 0.95em;`;
@@ -1563,27 +1602,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
     
     const video = document.createElement('video');
-    video.id = 'foto-video-manual';
+    video.id = 'foto-video-manual-qr';
     video.style.cssText = `width: 100%; border-radius: 4px; display: none; max-height: 250px; object-fit: cover;`;
     video.autoplay = true;
     video.playsInline = true;
     fotoContainer.appendChild(video);
 
     const canvas = document.createElement('canvas');
-    canvas.id = 'foto-canvas-manual';
+    canvas.id = 'foto-canvas-manual-qr';
     canvas.style.cssText = `width: 100%; border-radius: 4px; display: none;`;
     canvas.style.maxHeight = '250px';
     fotoContainer.appendChild(canvas);
 
     const preview = document.createElement('img');
-    preview.id = 'foto-preview-manual';
+    preview.id = 'foto-preview-manual-qr';
     preview.style.cssText = `width: 100%; border-radius: 4px; display: none; max-height: 250px; object-fit: cover;`;
     fotoContainer.appendChild(preview);
 
     const placeholder = document.createElement('div');
     placeholder.style.cssText = `color: #999; font-size: 0.9em; text-align: center;`;
     placeholder.textContent = 'Sin foto capturada';
-    placeholder.id = 'foto-placeholder-manual';
+    placeholder.id = 'foto-placeholder-manual-qr';
     fotoContainer.appendChild(placeholder);
 
     fotoDiv.appendChild(fotoContainer);
@@ -1630,13 +1669,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const loadingOverlay = mostrarOverlay('Guardando registro...');
       try {
         const fotoBase64 = canvas.dataset.fotoBase64 || null;
-        await guardarRegistroRondaManual(codigoQR, punto, ronda, respuestasObj, fotoBase64);
+        await guardarRegistroRondaManualQR(qrEncontrado, {}, fotoBase64);
         ocultarOverlay();
         overlay.remove();
-        mostrarResumenRondaManual(punto);
+        mostrarResumenRondaManual(qrEncontrado.nombre);
       } catch (e) {
         ocultarOverlay();
-        console.error('[Foto Manual] Error:', e);
+        console.error('[Foto Manual QR] Error:', e);
       }
     });
     buttonsDiv.appendChild(btnGuardar);
@@ -1661,8 +1700,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.appendChild(overlay);
   }
 
-  // ===================== GUARDAR REGISTRO RONDA MANUAL =====================
-  async function guardarRegistroRondaManual(codigoQR, punto, ronda, respuestas, fotoBase64) {
+  // ===================== GUARDAR REGISTRO RONDA MANUAL - QR_CODES =====================
+  async function guardarRegistroRondaManualQR(qrEncontrado, respuestas, fotoBase64) {
     try {
       const ahora = new Date();
       const fechaHora = ahora.toLocaleString('es-ES', {
@@ -1684,41 +1723,39 @@ document.addEventListener('DOMContentLoaded', async () => {
           const apellidos = (datos.APELLIDOS || '').trim();
           nombreCompleto = `${nombres} ${apellidos}`.trim();
           
-          console.log('[Ronda Manual] Nombre encontrado:', nombreCompleto);
+          console.log('[Ronda Manual QR] Nombre encontrado:', nombreCompleto);
         }
       } catch (e) {
-        console.warn('[Ronda Manual] No se pudo obtener nombre completo:', e);
+        console.warn('[Ronda Manual QR] No se pudo obtener nombre completo:', e);
         // Continuar con el userId como fallback
       }
 
       const registro = {
         usuario: nombreCompleto,
         usuarioEmail: currentUser.email,
-        cliente: userCtx.cliente,
-        unidad: userCtx.unidad,
+        cliente: qrEncontrado.cliente,
+        unidad: qrEncontrado.unidad,
         puesto: userCtx.puesto,
-        nombrePunto: punto.nombre,
-        qrId: punto.qrId,
-        codigoQRLeido: codigoQR,
-        preguntas: punto.questions || {},
+        nombrePunto: qrEncontrado.nombre,
+        qrId: qrEncontrado.qrId,
         respuestas: respuestas,
         foto: fotoBase64,
         fechaHora: fechaHora,
         timestamp: firebase.firestore.Timestamp.now(),
-        tipo: 'ronda_manual'
+        tipo: 'ronda_manual_qr'
       };
 
       await db.collection('RONDA_MANUAL').add(registro);
 
-      console.log('[Ronda Manual] Registro guardado:', registro);
+      console.log('[Ronda Manual QR] Registro guardado:', registro);
     } catch (e) {
-      console.error('[Ronda Manual] Error guardando:', e);
+      console.error('[Ronda Manual QR] Error guardando:', e);
       alert('Error: ' + e.message);
     }
   }
 
   // ===================== MOSTRAR RESUMEN RONDA MANUAL =====================
-  function mostrarResumenRondaManual(punto) {
+  function mostrarResumenRondaManual(nombrePunto) {
     const modal = document.createElement('div');
     modal.style.cssText = `
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -1737,7 +1774,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       <div style="font-size: 3em; margin-bottom: 20px;">✅</div>
       <h2 style="color: #10b981; margin: 0 0 15px 0; font-size: 1.3em;">Punto Registrado</h2>
       <p style="color: #ccc; margin: 0 0 20px 0; font-size: 0.95em;">
-        Se ha guardado el registro de <strong>${punto.nombre}</strong>
+        Se ha guardado el registro de <strong>${nombrePunto}</strong>
       </p>
       <button id="continuar-ronda-manual" style="
         background: #10b981; color: white; border: none; padding: 12px 30px;

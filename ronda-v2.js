@@ -384,7 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const [horaStr, minStr] = (horarioRonda || '00:00').split(':');
     const horarioFormato = `${String(horaStr).padStart(2, '0')}${String(minStr).padStart(2, '0')}`;
     
-    return `${rondaId}_${año}-${mes}-${día}_${horarioFormato}`;
+    return `${rondaId}_${año}_${mes}_${día}_${horarioFormato}`;
   }
 
   async function iniciarRonda(ronda) {

@@ -433,6 +433,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         unidad: userCtx.unidad,
         usuario: nombreCompleto,
         usuarioEmail: currentUser.email,
+        horarioRonda: ronda.horario,
         horarioInicio: ahora,
         horarioTermino: null,
         estado: 'EN_PROGRESO',

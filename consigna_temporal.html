@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Consigna Temporal</title>
+
+  <link rel="stylesheet" href="style.css?v=69"/>
+  <link rel="stylesheet" href="webview.css?v=69"/>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+</head>
+<body>
+  <div class="list-page-container">
+    <div class="list-page-header">
+      <a class="btn-back" href="menu.html"><i class="fa-solid fa-arrow-left"></i> Atrás</a>
+      <h1 class="page-title">Nueva Consigna Temporal</h1>
+      <span></span>
+    </div>
+
+    <div class="form-container" style="max-width:640px; margin-inline:auto;">
+      <form id="consigna-temporal-form" novalidate>
+        <div class="input-group">
+          <label for="titulo">Título</label>
+          <input id="titulo" type="text" placeholder="Ej: Cierre de puerta sur" required>
+        </div>
+
+        <div class="input-group">
+          <label for="descripcion">Descripción</label>
+          <textarea id="descripcion" placeholder="Detalle la consigna..." required></textarea>
+        </div>
+
+        <div class="input-group">
+          <label for="inicio">Fecha de inicio</label>
+          <input id="inicio" type="date" required>
+        </div>
+
+        <div class="input-group">
+          <label for="fin">Fecha de fin</label>
+          <input id="fin" type="date" required>
+        </div>
+
+        <div class="input-group">
+          <label class="btn-secondary" for="foto-input" style="width:auto;">Adjuntar Fotografía (Opcional)</label>
+          <input id="foto-input" type="file" accept="image/*" capture="environment">
+          <img id="foto-preview" class="preview-thumb" alt="Vista previa" hidden>
+        </div>
+
+        <div class="input-group">
+          <label for="firma-canvas">Firma</label>
+          <canvas id="firma-canvas"></canvas>
+          <button type="button" id="clear-firma" class="btn-secondary" style="margin-top:.5rem;">Limpiar Firma</button>
+        </div>
+
+        <button id="guardar-btn" class="btn-primary" type="submit">Guardar Consigna</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="loadingOverlay" hidden>
+    <div class="loading-box">
+      <div class="loading-brand"><div class="loading-ring"></div></div>
+      <div class="loading-title">Procesando…</div>
+      <div class="progress-wrap"><div class="progress-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
+
+  <!-- Config -->
+  <script src="firebase-config.js?v=69"></script>
+  <script src="initFirebase.js?v=69"></script>
+  <script src="image-optimizer.js?v=1"></script>
+  <script src="ui.js?v=69"></script>
+  <script src="sync.js?v=69"></script>
+
+
+  <!-- Firma -->
+  <!-- Asegúrate también de cargar SignaturePad y image-compression en el HTML -->
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+
+  <!-- Lógica -->
+  <script src="consigna_temporal.js?v=69"></script> 
+
+  <script>
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
+  </script>
+</body>
+</html>

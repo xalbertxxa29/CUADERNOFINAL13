@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Acceso Vehicular</title>
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="style.css?v=69"/>
+  <link rel="stylesheet" href="webview.css?v=69"/>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+
+  <!-- Meta PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+</head>
+<body>
+  <div class="form-page">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+        <h2 style="margin:0;">Ingreso Vehicular</h2>
+        <a href="menu.html" class="btn-secondary" style="text-decoration:none;"><i class="fas fa-arrow-left"></i> Atrás</a>
+      </div>
+
+      <form id="acceso-form" novalidate>
+        <!-- Placa del Vehículo -->
+        <div class="input-group">
+          <label for="placa">Placa del Vehículo *</label>
+          <input type="text" id="placa" placeholder="Ej: ABC-1234" required />
+        </div>
+
+        <!-- Marca del Vehículo -->
+        <div class="input-group">
+          <label for="marca">Marca de Vehículo *</label>
+          <input type="text" id="marca" placeholder="Ej: Toyota" required />
+        </div>
+
+        <!-- Modelo del Vehículo -->
+        <div class="input-group">
+          <label for="modelo">Modelo de Vehículo *</label>
+          <input type="text" id="modelo" placeholder="Ej: 2020" required />
+        </div>
+
+        <!-- Color del Vehículo -->
+        <div class="input-group">
+          <label for="color">Color del Vehículo *</label>
+          <input type="text" id="color" placeholder="Ej: Rojo, Blanco, Negro" required />
+        </div>
+
+        <!-- DNI Propietario -->
+        <div class="input-group">
+          <label for="dni">DNI del Propietario *</label>
+          <input type="text" id="dni" placeholder="DNI sin guiones" pattern="[0-9]{8}" maxlength="8" required />
+        </div>
+
+        <!-- Nombres Propietario -->
+        <div class="input-group">
+          <label for="nombres">Nombres del Propietario *</label>
+          <input type="text" id="nombres" placeholder="Nombres y Apellidos" required />
+        </div>
+
+        <!-- Observaciones -->
+        <div class="input-group">
+          <label for="observaciones">Observaciones</label>
+          <textarea id="observaciones" rows="3" placeholder="Cualquier nota relevante..."></textarea>
+        </div>
+
+        <!-- Foto (opcional) -->
+        <div class="input-group">
+          <label for="foto-input">Foto del Vehículo (Opcional)</label>
+          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="file" id="foto-input" accept="image/*" style="flex: 1;" />
+            <button type="button" id="btn-camera" class="btn-secondary" title="Abrir cámara">
+              <i class="fa-solid fa-camera"></i>
+            </button>
+          </div>
+          <img id="foto-preview" hidden style="max-width:100%; margin-top:10px; border-radius:8px;" />
+        </div>
+
+        <!-- Botones -->
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn-secondary" style="flex:1;" onclick="window.location.href='menu.html'">
+            <i class="fa-solid fa-times"></i> Cancelar
+          </button>
+          <button type="submit" class="btn-primary" style="flex:1;">
+            <i class="fa-solid fa-save"></i> Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
+
+  <!-- Config e Inicialización -->
+  <script src="firebase-config.js?v=69"></script>
+  <script src="initFirebase.js?v=69"></script>
+  <script src="offline-storage.js?v=69"></script>
+  <script src="ui.js?v=69"></script>
+  <script src="webview.js?v=69"></script>
+
+  <!-- Lógica de Acceso Vehicular -->
+  <script src="accesovehicular.js?v=69"></script>
+
+  <!-- SW -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    }
+  </script>
+</body>
+</html>

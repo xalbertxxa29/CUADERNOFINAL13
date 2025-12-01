@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ingresar Información</title>
+  <link rel="stylesheet" href="style.css?v=69">
+  <link rel="stylesheet" href="webview.css?v=69">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+</head>
+<body>
+  <div class="form-container">
+    <a href="menu.html" class="btn-back"><i class="fas fa-arrow-left"></i> Atrás</a>
+    <h1>Ingresar Información</h1>
+
+    <form id="info-form" novalidate>
+      <div class="input-group">
+        <label for="comentario">Ingresar Comentario</label>
+        <textarea id="comentario" required minlength="3" placeholder="Describe el hecho..."></textarea>
+      </div>
+
+      <div class="input-group">
+        <label for="foto-input" class="btn-secondary">Tomar Fotografía (Opcional)</label>
+        <input type="file" id="foto-input" accept="image/*" capture="environment">
+        <img id="foto-preview" class="preview-thumb" alt="Vista previa" hidden>
+
+      </div>
+
+      <div class="input-group">
+        <label for="firma-canvas">Firma</label>
+        <canvas id="firma-canvas" style="width:100%;height:180px;border:1px dashed #ccc;border-radius:8px;background:#fff;"></canvas>
+        <button type="button" id="clear-firma" class="btn-secondary">Limpiar Firma</button>
+      </div>
+
+      <div class="button-group">
+        <button type="submit" id="guardar-btn" class="btn-primary">Guardar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Overlay de carga -->
+  <div id="loadingOverlay" hidden>
+    <div class="loading-box">
+      <div class="loading-brand"><div class="loading-ring"></div></div>
+      <div class="loading-title">Procesando…</div>
+      <div class="loading-sub">Por favor, espera un momento.</div>
+      <div class="progress-wrap"><div class="progress-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- Firebase + libs -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+  <!-- Config + utilidades -->
+  <script src="firebase-config.js?v=69"></script>
+  <script src="initFirebase.js?v=69"></script>
+  <script src="image-optimizer.js?v=1"></script>
+  <script src="ui.js?v=69"></script>
+  <script src="webview.js?v=69"></script>
+  <script src="offline-queue.js?v=69"></script>
+  <script src="sync.js?v=69"></script>
+
+
+  <!-- Lógica de la página -->
+  <script src="ingresar_informacion.js?v=69"></script>
+
+  <!-- SW -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js');
+    }
+  </script>
+</body>
+</html>

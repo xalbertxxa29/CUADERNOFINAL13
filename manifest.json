@@ -1,0 +1,22 @@
+{
+  "name": "Reporte de Incidencias Liderman",
+  "short_name": "Incidencias",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#e70909",
+  "description": "Aplicación para el reporte de incidencias.",
+  "icons": [
+    {
+      "src": "imagenes/logo_192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "imagenes/logo_512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "scope": "./"
+}

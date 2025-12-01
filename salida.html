@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Salida de Peatón</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css?v=69"/>
+  <link rel="stylesheet" href="webview.css?v=69"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"/>
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 style="margin:0;">Salida de Peatón</h2>
+        <a href="menu.html" id="btn-volver" class="btn-secondary">Volver</a>
+      </div>
+      <p class="muted" style="margin-top:4px;">Selecciona un registro con estado ABIERTO para registrar la salida.</p>
+
+      <div id="lista-salidas" class="list" style="margin-top:1rem;"></div>
+    </div>
+  </div>
+
+  <!-- Modal con iframe de detalle -->
+  <div id="detalle-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="width:520px;max-width:95%;padding:0;overflow:hidden;">
+      <iframe id="detalle-iframe" class="responsive-iframe" style="border:0;height:540px;"></iframe>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
+  <!-- App -->
+  <script src="firebase-config.js?v=69"></script>
+  <script src="initFirebase.js?v=69"></script>
+  <script src="ui.js?v=69"></script>
+  <script src="webview.js?v=69"></script>
+  <script src="salida.js?v=69"></script>
+
+  <!-- SW -->
+  <script> if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js'); </script>
+</body>
+</html>

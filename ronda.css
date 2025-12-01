@@ -1,0 +1,233 @@
+/* ============================
+   Estilos Generales (modo oscuro)
+   ============================ */
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #000; color: #fff;
+}
+body { overflow: hidden; } /* el scroll se maneja dentro de los modales */
+
+/* ============================
+   Contenedor del Escáner
+   ============================ */
+#scanner-container { position: relative; width: 100%; height: 100%; }
+#video { width: 100%; height: 100%; object-fit: cover; }
+.scanner-header{
+  position: absolute; top: 20px; width: 100%; text-align: center;
+  font-size: 1.2em; font-weight: bold; color: #fff; text-shadow: 0 0 5px #000;
+}
+#scan-box-overlay{
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 65vw; height: 65vw; max-width: 300px; max-height: 300px;
+  border: 3px solid rgba(255,255,255,.85);
+  box-shadow: 0 0 0 4000px rgba(0,0,0,.6);
+  border-radius: 12px;
+}
+
+/* ============================
+   Modales (Opciones y Formularios)
+   ============================ */
+.modal-container{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-content{
+  background: #2c2c2e; color: #fff;
+  padding: 20px; border-radius: 14px; width: 92%; max-width: 430px; text-align: center;
+  box-shadow: 0 5px 15px rgba(0,0,0,.5);
+  max-height: 86vh; overflow: auto;  /* <- permite scroll de formularios largos */
+}
+.modal-content h3{ margin: 0 0 8px; }
+.modal-content p{ color: #f2f2f7; font-size: 1.05em; }
+#scanned-point-name, #point-name-sin-novedad, #point-name-con-novedad{
+  color: #42a5f5; font-weight: 700; margin: 10px 0; display: block;
+}
+
+/* ============================
+   Botones
+   ============================ */
+.button-group{ display: flex; gap: 10px; margin: 20px 0; }
+button{
+  flex: 1; padding: 12px; border-radius: 8px; border: none;
+  font-size: 16px; font-weight: 600; cursor: pointer;
+  transition: transform .1s ease, box-shadow .15s ease;
+}
+button:active{ transform: scale(.97); }
+.btn-novedad{ background: #f59e0b; color: #fff; }
+.btn-normal{ background: #22c55e; color: #fff; }
+.btn-submit{ background: #3b82f6; color: #fff; width: 100%; }
+.btn-cancel{ background: #6b7280; color: #fff; margin-top: 10px; width: 100%; }
+.btn{ box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+.btn-primary{ box-shadow: 0 6px 24px rgba(16,185,129,.25); }
+.btn-warn{ box-shadow: 0 6px 24px rgba(245,158,11,.25); }
+.btn:hover{ box-shadow: 0 10px 30px rgba(0,0,0,.22); }
+
+/* ============================
+   Formularios
+   ============================ */
+form{ margin-top: 16px; text-align: left; }
+input[type="text"], textarea{
+  width: 100%; padding: 12px; margin: 0 0 14px;
+  border-radius: 8px; border: 1px solid #4a4a4c;
+  background: #1c1c1e; color: #fff; font-size: 16px;
+  outline: none;
+}
+input[type="text"]:focus, textarea:focus{
+  border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.25);
+}
+textarea{ resize: vertical; }
+
+/* ============================
+   Preguntas (6) Sí/No — estética
+   ============================ */
+.questions{
+  margin: 12px 0 16px 0; padding: 0 2px; list-style: decimal inside;
+}
+.questions .q-item{
+  background: #232325; border: 1px solid rgba(255,255,255,.06);
+  border-radius: 10px; padding: 12px 12px; margin: 10px 0 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.18);
+}
+.questions .q-text{
+  margin: 0 0 10px; line-height: 1.45; color: #f4f4f5; font-size: 15.5px;
+}
+.questions .q-options{
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin: 2px 0 2px 0;
+}
+.q-pill{
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #1b1b1e; border: 1px solid rgba(255,255,255,.09);
+  color: #eaeaea; padding: 8px 12px; border-radius: 999px;
+  font-weight: 600; cursor: pointer; user-select: none;
+  transition: transform .05s ease, background .2s ease, border-color .2s ease;
+}
+.q-pill:hover{ background:#202024; border-color: rgba(255,255,255,.16); }
+.q-pill:active{ transform: translateY(1px); }
+.q-pill input[type="radio"]{
+  width: 18px; height: 18px; accent-color: #3b82f6;
+}
+.q6-comment-wrap{ margin-top: 10px; }
+.q6-comment-wrap.hidden{ display: none; }
+
+/* ============================
+   Evidencia (foto)
+   ============================ */
+.evidence-block{ margin-top: 12px; }
+.evidence-title{ display: block; font-weight: 600; margin-bottom: 8px; }
+.evidence-actions{ display: flex; gap: 10px; align-items: center; }
+.evidence-preview{ margin-top: 10px; display: flex; align-items: center; gap: 12px; }
+.evidence-preview img{
+  max-width: 160px; max-height: 160px; border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18); object-fit: cover;
+}
+
+/* ============================
+   Notificaciones (Toast)
+   ============================ */
+#status-toast{
+  position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%);
+  padding: 12px 25px; border-radius: 8px; color: #fff;
+  font-weight: 600; z-index: 2000; transition: bottom .5s ease-in-out;
+}
+#status-toast.show{ bottom: 20px; }
+#status-toast.success{ background: #22c55e; }
+#status-toast.error{ background: #ef4444; }
+#status-toast.offline{ background: #f59e0b; }
+
+/* ============================
+   Overlay moderno de guardado
+   ============================ */
+#saving-overlay{ position: fixed; inset: 0; display: none; z-index: 2000; }
+#saving-overlay.active{ display: block; }
+#saving-overlay .so-backdrop{
+  position: absolute; inset: 0; background: rgba(0,0,0,.35); backdrop-filter: blur(2px);
+  animation: soFade .18s ease-out;
+}
+#saving-overlay .so-card{
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.98);
+  width: min(380px,92vw); padding: 22px; border-radius: 18px; border: 1px solid rgba(255,255,255,.15);
+  background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.88));
+  color: #0f172a; text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,.25);
+  animation: soPop .22s cubic-bezier(.2,.8,.2,1) forwards;
+  will-change: transform, opacity;
+}
+#saving-overlay .so-msg{ margin-top: 10px; font-weight: 700; letter-spacing: .2px; }
+.so-spinner{
+  width: 56px; height: 56px; margin: 6px auto; border-radius: 50%;
+  border: 5px solid rgba(15,23,42,.14); border-top-color: #10b981;
+  animation: soSpin 1s linear infinite;
+}
+#saving-overlay.success .so-spinner{ display: none; }
+.so-check{ display: none; color: #10b981; margin: 6px auto; }
+#saving-overlay.success .so-check{ display: block; animation: soCheck .35s ease-out; }
+
+@keyframes soPop{ to{ transform: translate(-50%,-50%) scale(1); } }
+@keyframes soFade{ from{ opacity: 0; } to{ opacity: 1; } }
+@keyframes soSpin{ to{ transform: rotate(360deg); } }
+@keyframes soCheck{
+  0%{ transform: scale(.6); opacity: 0; }
+  40%{ transform: scale(1.08); opacity: 1; }
+  100%{ transform: scale(1); }
+}
+
+/* ============================
+   Microtransiciones de UI
+   ============================ */
+.fade-in{ opacity: 0; transform: translateY(6px); animation: fadeIn .25s ease forwards; }
+@keyframes fadeIn{ to{ opacity: 1; transform: none; } }
+
+/* ============================
+   Modal de Permisos de Cámara (INICIAR RONDAS)
+   ============================ */
+#camera-permission-msg{
+  position: fixed; inset: 0;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.55);
+  z-index: 9999; text-align: center; padding: 20px;
+}
+#camera-permission-msg.active{ display: flex; animation: fadeIn .25s ease-in-out; }
+#camera-permission-msg .msg-box{
+  background: #111; color: #fff;
+  padding: 24px 30px; border-radius: 14px; max-width: 420px; width: calc(100% - 40px);
+  box-shadow: 0 16px 44px rgba(0,0,0,.5);
+}
+#camera-permission-msg h3{
+  margin: 0 0 12px; font-size: 1.15rem; color: #fff; letter-spacing: .4px;
+}
+#camera-permission-msg .btn-play{
+  display: inline-flex; align-items: center; gap: 10px;
+  border: none; border-radius: 999px; cursor: pointer;
+  padding: 14px 22px; font-weight: 800; letter-spacing: .3px;
+  background: #3b82f6; color: #fff;
+  box-shadow: 0 12px 32px rgba(59,130,246,.35);
+  transition: transform .06s ease, box-shadow .18s ease;
+  margin-top: 6px;
+}
+#camera-permission-msg .btn-play:active{ transform: scale(.98); }
+#camera-permission-msg .btn-play:hover{ box-shadow: 0 16px 42px rgba(59,130,246,.45); }
+#camera-permission-msg .hint{
+  margin: 12px 0 0; font-size: 13px; color: #cbd5e1;
+}
+
+/* ============================
+   Responsivo mínimo
+   ============================ */
+@media (min-width: 480px){
+  .modal-content{ width: 92%; max-width: 520px; }
+}
+
+
+/* === Sheet de evidencia === */
+.sheet.hidden{display:none}
+.sheet{position:fixed;inset:0;display:grid;place-items:end center;background:rgba(0,0,0,.35);z-index:3000}
+.sheet-card{width:100%;max-width:520px;background:#111;color:#fff;border:1px solid #333;border-radius:16px 16px 0 0;padding:16px 16px 24px;box-shadow:0 -16px 40px rgba(0,0,0,.35)}
+.sheet-card h3{margin:4px 0 10px;font-size:1.05rem}
+.sheet-card .btn{width:100%;margin:8px 0}
+.btn{padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1b1b1b;color:#fff}
+.btn-primary{background:#d62828;border-color:#b71c1c}
+.btn-ghost{background:transparent;border-color:transparent;color:#bbb}
+

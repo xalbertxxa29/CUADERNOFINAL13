@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Acceso Peatonal</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css?v=69"/>
+  <link rel="stylesheet" href="webview.css?v=69"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"/>
+</head>
+<body>
+  <div class="page form-page">
+    <div class="card">
+      <h2>Acceso Peatonal</h2>
+      <p style="margin-top:-6px;color:#888">Complete todos los campos (obligatorios).</p>
+
+      <form id="peatonal-form" class="grid" style="gap:.9rem;">
+        <div class="input-group">
+          <label for="tipoAcceso">Tipo de Acceso</label>
+          <select id="tipoAcceso" required>
+            <option value="" selected disabled>Seleccione…</option>
+            <option>CONTRATISTA</option>
+            <option>PROVEEDOR</option>
+            <option>VISITA</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="empresa">Empresa</label>
+          <input id="empresa" type="text" required autocomplete="off" />
+        </div>
+
+        <div class="input-group">
+          <label for="tipoDocumento">Tipo Documento</label>
+          <select id="tipoDocumento" required>
+            <option value="" selected disabled>Seleccione…</option>
+            <option value="DNI">DNI</option>
+            <option value="PASAPORTE">PASAPORTE</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="numeroDocumento">N° Documento</label>
+          <input id="numeroDocumento" type="text" required autocomplete="off" inputmode="numeric" />
+          <small id="docHelp" class="muted">Para DNI: exactamente 8 dígitos. Para PASAPORTE: exactamente 9 caracteres alfanuméricos.</small>
+        </div>
+
+        <div class="input-group">
+          <label for="nombres">Nombres Completos</label>
+          <input id="nombres" type="text" required autocomplete="off" />
+        </div>
+
+        <div class="input-group">
+          <label for="motivo">Motivo</label>
+          <input id="motivo" type="text" required autocomplete="off" maxlength="120"/>
+        </div>
+
+        <div class="input-group">
+          <label for="area">Área</label>
+          <input id="area" type="text" required autocomplete="off" maxlength="60"/>
+        </div>
+
+        <div class="button-group" style="justify-content:flex-end;">
+          <a id="btn-cancelar" class="btn-secondary" href="menu.html">Cancelar</a>
+          <button id="btn-enviar" type="submit" class="btn-primary">Enviar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
+  <!-- App -->
+  <script src="firebase-config.js?v=69"></script>
+  <script src="initFirebase.js?v=69"></script>
+  <script src="ui.js?v=69"></script>
+  <script src="webview.js?v=69"></script>
+  <script src="peatonal.js?v=69"></script>
+
+  <!-- SW -->
+  <script> if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js'); </script>
+</body>
+</html>

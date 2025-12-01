@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Menú Principal</title>
+
+  <!-- PWA / Estilos -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css?v=69"/>
+  <link rel="stylesheet" href="webview.css?v=69"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"/>
+</head>
+<body>
+  <div class="menu-wrapper page">
+    <div class="menu-card-improved">
+      <div class="menu-header">
+        <img src="imagenes/logo1.png" alt="Liderman Logo" class="menu-logo"/>
+        <h1 id="welcome-title">Bienvenido</h1>
+        <p id="user-details">Cargando...</p>
+        <p id="user-client-unit" class="user-client-unit"></p>
+      </div>
+
+      <div class="menu-options">
+        <!-- NUEVO: Botón Ronda (lleva al lector QR en otra página) -->
+        <a href="ronda.html" class="menu-button-improved">
+          <i class="fas fa-qrcode"></i><span>Ronda</span>
+        </a>
+
+        <a href="ingresar_informacion.html" class="menu-button-improved">
+          <i class="fas fa-book"></i><span>Registro en el Cuaderno</span>
+        </a>
+
+        <a href="registrar_incidente.html" class="menu-button-improved">
+          <i class="fas fa-exclamation-triangle"></i><span>Registro de Incidente</span>
+        </a>
+
+        <a href="ingresar_consigna.html" class="menu-button-improved">
+          <i class="fas fa-bullhorn"></i><span>Ingresar Consigna</span>
+        </a>
+
+        <a href="#" id="ver-info-btn" class="menu-button-improved">
+          <i class="fas fa-eye"></i><span>Ver Información</span>
+        </a>
+
+        <a href="peatonal.html" class="menu-button-improved">
+          <i class="fas fa-walking"></i><span>Acceso Peatonal</span>
+        </a>
+
+        <a href="salida.html" class="menu-button-improved">
+          <i class="fas fa-door-open"></i><span>Salida de Peatón</span>
+        </a>
+
+        <a href="accesovehicular.html" class="menu-button-improved">
+          <i class="fas fa-car"></i><span>Acceso Vehicular</span>
+        </a>
+
+        <a href="salidavehicular.html" class="menu-button-improved">
+          <i class="fas fa-car"></i><span>Salida Vehicular</span>
+        </a>
+
+        <a href="#" id="relevo-btn" class="menu-button-improved">
+          <i class="fas fa-exchange-alt"></i><span>Relevo</span>
+        </a>
+      </div>
+
+      <div class="menu-footer">
+        <a href="#" id="logout-btn" class="logout-button" title="Cerrar sesión">
+          <i class="fas fa-sign-out-alt"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Ver Información -->
+  <div id="ver-info-modal-overlay" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:480px;text-align:center;">
+      <h3 style="margin-top:0;">Ver Información</h3>
+      <p style="font-size:.95rem;color:#888;margin-bottom:1.5rem;">Seleccione el tipo de información que desea consultar.</p>
+      <div class="menu-options" style="margin-bottom:1rem;">
+        <a href="ver_consignas.html" class="menu-button-improved"><i class="fas fa-list-alt"></i><span>Ver Consignas</span></a>
+        <a href="registros.html" class="menu-button-improved"><i class="fas fa-calendar-alt"></i><span>Ver Registros</span></a>
+      </div>
+      <button type="button" id="ver-info-cancel-btn" class="btn-secondary" style="width:auto;padding:.75rem 2rem;">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Relevo -->
+  <div id="relevo-modal-overlay" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:480px;text-align:left;">
+      <h3 style="margin-top:0;">Formulario de Relevo</h3>
+      <form id="relevo-form" style="margin-top:1rem;">
+        <p style="margin-bottom:1rem;font-size:.9rem;">Ingrese las credenciales del agente que tomará el turno.</p>
+
+        <div class="input-group">
+          <label for="relevo-id">ID de Usuario (Entrante)</label>
+          <input type="text" id="relevo-id" required autocomplete="off"/>
+        </div>
+
+        <div class="input-group">
+          <label for="relevo-password">Contraseña (Entrante)</label>
+          <input type="password" id="relevo-password" required/>
+        </div>
+
+        <div class="input-group">
+          <label for="relevo-comentario">Comentario de Relevo</label>
+          <textarea id="relevo-comentario" required></textarea>
+        </div>
+
+        <div class="input-group">
+          <label for="relevo-firma-canvas">Firma de Conformidad</label>
+          <!-- Dimensiones explícitas para evitar canvas 0px -->
+          <canvas id="relevo-firma-canvas" style="width:100%;height:140px;border:1px dashed #d0d4e4;border-radius:10px;background:#fff;"></canvas>
+          <button type="button" id="relevo-clear-firma" class="btn-secondary" style="width:auto;padding:6px 10px;font-size:.8rem;margin-top:.5rem;">Limpiar</button>
+        </div>
+
+        <div class="button-group">
+          <button id="relevo-cancel-btn" type="button" class="btn-secondary">Cancelar</button>
+          <button id="relevo-crear-usuario-btn" type="button" class="btn-secondary">Crear usuario</button>
+          <button id="relevo-guardar-btn" type="submit" class="btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Crear usuario rápido (sin cerrar sesión) -->
+  <div id="crear-usuario-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:560px;">
+      <h3 style="margin-top:0;text-align:center;">Crear usuario (rápido)</h3>
+      <p style="margin-top:-6px;color:#888;text-align:center;">No perderás tu sesión actual.</p>
+
+      <form id="crear-usuario-form" class="grid" style="gap:.75rem;margin-top:.75rem;">
+        <div class="input-group">
+          <label for="cu-id">ID de Usuario</label>
+          <input id="cu-id" type="text" required autocomplete="off"/>
+        </div>
+
+        <div class="input-group">
+          <label for="cu-nombres">Nombres</label>
+          <input id="cu-nombres" type="text" required/>
+        </div>
+
+        <div class="input-group">
+          <label for="cu-apellidos">Apellidos</label>
+          <input id="cu-apellidos" type="text" required/>
+        </div>
+
+        <div class="input-group">
+          <label for="cu-cliente-input">Cliente</label>
+          <div class="input-with-button">
+            <div class="searchable-dropdown">
+              <input type="text" id="cu-cliente-input" placeholder="Buscar..." autocomplete="off" required/>
+              <div class="dropdown-content" id="cu-cliente-list"></div>
+            </div>
+            <button type="button" id="cu-add-cliente-btn" class="btn-add" title="Añadir">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="cu-unidad-input">Unidad</label>
+          <div class="input-with-button">
+            <div class="searchable-dropdown">
+              <input type="text" id="cu-unidad-input" placeholder="Selecciona cliente..." autocomplete="off" required disabled/>
+              <div class="dropdown-content" id="cu-unidad-list"></div>
+            </div>
+            <button type="button" id="cu-add-unidad-btn" class="btn-add" title="Añadir">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="cu-puesto-input">Puesto</label>
+          <div class="input-with-button">
+            <div class="searchable-dropdown">
+              <input type="text" id="cu-puesto-input" placeholder="Selecciona unidad..." autocomplete="off" required disabled>
+              <div class="dropdown-content" id="cu-puesto-list"></div>
+            </div>
+            <button type="button" id="cu-add-puesto-btn" class="btn-add" title="Añadir">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="cu-pass">Contraseña</label>
+          <input id="cu-pass" type="password" required minlength="6"/>
+        </div>
+
+        <div class="input-group">
+          <label for="cu-pass2">Repetir Contraseña</label>
+          <input id="cu-pass2" type="password" required minlength="6"/>
+        </div>
+
+        <div class="button-group" style="justify-content:flex-end;">
+          <button type="button" id="cu-cancel" class="btn-secondary">Cancelar</button>
+          <button type="submit" id="cu-guardar" class="btn-primary" style="width:auto;">Crear</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- (Opcional) Iframe de altas rápidas para catálogos -->
+  <div id="iframe-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="width: 450px; max-width: 95%;">
+      <h3 id="iframe-title" style="text-align: center; margin-bottom: 1rem;"></h3>
+      <iframe id="add-item-iframe" class="responsive-iframe"></iframe>
+      <button id="close-iframe-modal-btn" class="btn-secondary" style="margin-top: 1rem;">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- ===== Scripts ===== -->
+  <!-- Firebase compat -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+  <!-- (El sync usa storage si está, pero es opcional para este flujo) -->
+  <!-- <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script> -->
+
+  <!-- Config / UI / WebView -->
+  <script src="firebase-config.js?v=69"></script>
+  <script src="offline-storage.js?v=69" defer></script>
+  <script src="ui.js?v=69"></script>
+  <script src="webview.js?v=69"></script>
+
+  <!-- Firma (Relevo) -->
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+  <!-- App -->
+  <script src="initFirebase.js?v=69"></script>
+  <script src="auth.js?v=69"></script>
+  <script src="menu.js?v=69"></script>
+  <script src="sync.js?v=69"></script>
+
+  <!-- SW -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "cuaderno12",
+  "version": "1.0.0",
+  "description": "Sistema de Control de Acceso Vehicular",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["firebase", "pwa", "access-control"],
+  "author": "",
+  "license": "ISC"
+}

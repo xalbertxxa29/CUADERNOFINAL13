@@ -1,0 +1,235 @@
+/* ============================
+   webview.css (v54)
+   Enfoque: WebView-friendly + Theme-aware + Alto contraste
+   ============================ */
+
+/* ---------- Normaliza scroll en WebView (iOS/Android) ---------- */
+html, body {
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body {
+  overscroll-behavior-y: contain;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- Safe areas (iPhone con notch) ---------- */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* Tema claro (defaults) */
+  --theme-bg: #f6f7fb;
+  --theme-card: #ffffff;
+  --theme-text: #0f172a;      /* slate-900 */
+  --theme-muted: #475569;     /* slate-600 */
+  --theme-border: #e5e7eb;    /* gray-200 */
+  --theme-accent: #3b82f6;    /* blue-500 */
+  --theme-accent-2: #2563eb;  /* blue-600 */
+  --theme-danger: #ef4444;
+
+  --shadow-md: 0 8px 24px rgba(0,0,0,.12);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,.25);
+}
+
+/* Tema oscuro */
+:root[data-theme="dark"] {
+  --theme-bg: #0b1120;        /* navy oscuro */
+  --theme-card: #111827cc;    /* semi-transparente para blur */
+  --theme-text: #eaeef5;      /* texto principal */
+  --theme-muted: #aab1c0;     /* texto secundario */
+  --theme-border: rgba(255,255,255,.18);
+  --theme-accent: #60a5fa;    /* blue-400 */
+  --theme-accent-2: #3b82f6;  /* blue-500 */
+  --shadow-md: 0 10px 28px rgba(0,0,0,.28);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,.5);
+}
+
+/* ---------- Page padding seguro ---------- */
+.page {
+  padding-top: calc(8px + var(--safe-top));
+  padding-bottom: calc(12px + var(--safe-bottom));
+  padding-left: calc(8px + var(--safe-left));
+  padding-right: calc(8px + var(--safe-right));
+}
+
+/* ============================
+   Topbar
+   ============================ */
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 8px;
+  height: 52px; padding: 0 12px;
+  background: color-mix(in oklab, var(--theme-bg) 92%, #000 8%);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--theme-border);
+}
+.topbar .title {
+  color: var(--theme-text); font-weight: 800; font-size: 1.05rem; flex: 1;
+}
+.topbar .btn { color: var(--theme-text); text-decoration: none; }
+
+/* ============================
+   Botón flotante (FAB)
+   ============================ */
+.fab {
+  position: fixed; right: 16px; bottom: calc(20px + var(--safe-bottom));
+  width: 56px; height: 56px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: #e70909; color: #fff; border: 0;
+  box-shadow: 0 12px 30px rgba(231,9,9,.35);
+}
+
+/* ============================
+   Modales – scroll seguro
+   ============================ */
+.modal-overlay{
+  position: fixed; inset: 0;
+  display: flex; justify-content: center; align-items: flex-start;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(2px);
+  padding: 16px; z-index: 1000;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.modal-overlay[hidden],
+.modal-overlay:is([style*="display: none"]) { display: none !important; }
+
+.modal-box{
+  width: min(520px, 96vw);
+  max-height: calc(100svh - 32px);
+  overflow: auto;
+  border-radius: 16px;
+  background: var(--theme-card);
+  color: var(--theme-text);
+  padding: 16px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--theme-border);
+}
+@supports not (height: 100svh) { .modal-box{ max-height: calc(100vh - 32px); } }
+.modal-box .input-group { margin-bottom: .9rem; }
+.modal-box .button-group { display:flex; gap:.5rem; justify-content:flex-end; }
+
+/* ============================
+   Lightbox – compatible WebView
+   ============================ */
+.lightbox { position: fixed; inset:0; display:grid; place-items:center; z-index:1100; }
+.lightbox[hidden] { display:none; }
+.lightbox-backdrop { position:absolute; inset:0; background: rgba(0,0,0,.6); backdrop-filter: blur(2px); }
+.lightbox-content {
+  position:relative; background:#111; padding:.75rem; border-radius:12px;
+  max-width:90vw; max-height:90vh; box-shadow: var(--shadow-lg);
+}
+.lightbox-content img { max-width:86vw; max-height:80vh; display:block; border-radius:8px; }
+.lightbox-close {
+  position:absolute; top:-14px; right:-14px;
+  width:36px; height:36px; border-radius:50%; border:0;
+  background:#e70909; color:#fff;
+}
+
+/* ============================
+   Firma (alto estable)
+   ============================ */
+#firma-canvas, #relevo-firma-canvas{
+  width: 100%; height: 180px; display:block; background: #fff;
+  border: 1px dashed #cfd4e5; border-radius: 10px; touch-action: none;
+}
+
+/* ============================
+   Select + botón “+” alineados
+   ============================ */
+.input-with-button{ display:flex; align-items:center; gap:.5rem; }
+.btn-add-icon{
+  width: 36px; height: 36px; display:inline-flex; align-items:center; justify-content:center;
+  border: 0; border-radius: 10px; background: var(--theme-accent); color:#fff;
+  font-weight: 800; box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  transition: transform .08s ease, background .2s ease;
+}
+.btn-add-icon:hover { background: var(--theme-accent-2); }
+.btn-add-icon:active { transform: translateY(1px) scale(.98); }
+
+/* ============================
+   Tarjetas compactas en listas
+   ============================ */
+.list-card{
+  border-radius: 14px;
+  background: var(--theme-card);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-border);
+  box-shadow: var(--shadow-md);
+  padding: 14px 16px; margin: 12px 0;
+}
+.list-card-head{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.4rem; }
+.list-card-title{ font-weight:800; font-size: 1.05rem; margin:0; color: var(--theme-text); }
+.list-card-desc{ color: var(--theme-text); opacity:.92; white-space: pre-wrap; margin:.35rem 0 .25rem; }
+.list-card-meta{ display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.5rem; }
+.badge{ display:inline-block; font-size:.75rem; font-weight:800; padding:.25rem .6rem; border-radius:999px; background:#e5e7eb; color:#111827; }
+.badge-info{ background:#dbeafe; color:#1e3a8a; }
+.badge-warning{ background:#fef3c7; color:#92400e; }
+
+/* Imágenes pequeñas en listas */
+.registro-imagen{
+  display:block; width:100%; height:auto; max-height:200px; object-fit: contain;
+  border-radius:10px; border:1px solid var(--theme-border); margin-top:.5rem;
+}
+
+/* ============================
+   List headers / botón atrás
+   ============================ */
+.list-page-header{
+  display:flex; gap:1rem; align-items:center; justify-content:space-between;
+  margin-bottom: 1rem;
+}
+.list-page-header .btn-back{ position: static; width:auto; }
+
+/* ============================
+   Entradas y foco — mejor contraste
+   ============================ */
+input, select, textarea {
+  color: var(--theme-text);
+}
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 8px;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--theme-accent) 45%, transparent);
+}
+
+/* Tipografía utilitaria */
+.muted { color: var(--theme-muted); }
+
+/* Botones (override suave para modo oscuro) */
+:root[data-theme="dark"] .btn-primary {
+  background: #1d4ed8; color:#fff; border: none;
+}
+:root[data-theme="dark"] .btn-primary:hover { background:#2563eb; }
+:root[data-theme="dark"] .btn-secondary {
+  background: rgba(255,255,255,.08); color: var(--theme-text);
+  border: 1px solid var(--theme-border);
+}
+
+/* ============================
+   Scrollbars (suaves, opcional)
+   ============================ */
+*::-webkit-scrollbar { width: 10px; height:10px; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--theme-text) 18%, transparent);
+  border-radius: 10px;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================
+   Ajustes responsive
+   ============================ */
+@media (max-width: 768px){
+  .modal-box{ width: 96vw; }
+  .list-page-header{ flex-direction: column-reverse; align-items:stretch; }
+}

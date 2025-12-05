@@ -70,33 +70,102 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       UX.show('Procesando imagen…');
       const opt = { maxSizeMB: 0.5, maxWidthOrHeight: 1280, useWebWorker: true, fileType: 'image/jpeg' };
-      pendingPhoto = await imageCompression(f, opt);
+      
+      // Intentar usar imageCompression, si no existe usar fallback
+      if (typeof imageCompression !== 'undefined') {
+        pendingPhoto = await imageCompression(f, opt);
+      } else {
+        console.warn('imageCompression no disponible, usando imagen original');
+        pendingPhoto = f;
+      }
+      
       fotoPreview.src = URL.createObjectURL(pendingPhoto);
       fotoPreview.hidden = false;
     } catch (e) {
-      console.error(e);
-      UX.alert('Aviso', 'No se pudo procesar la imagen.');
-      pendingPhoto = null; fotoPreview.hidden = true; fotoPreview.src = '';
+      console.error('Error procesando imagen:', e);
+      UX.alert('Aviso', 'No se pudo procesar la imagen. Se usará la original.');
+      pendingPhoto = f; // Usar imagen original como fallback
+      fotoPreview.src = URL.createObjectURL(f);
+      fotoPreview.hidden = false;
     } finally { UX.hide(); }
   });
 
   // --- Subida segura / base64 fallback ---
   function blobToDataURL(blob) {
     return new Promise((res, rej) => {
-      const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob);
+      console.log('[blobToDataURL] Convertiendo blob a DataURL, tamaño:', blob.size, 'bytes');
+      const r = new FileReader(); 
+      r.onload = () => {
+        console.log('[blobToDataURL] ✅ Conversión exitosa, DataURL length:', r.result.length);
+        res(r.result);
+      };
+      r.onerror = (err) => {
+        console.error('[blobToDataURL] ❌ Error en FileReader:', err);
+        rej(err);
+      };
+      r.readAsDataURL(blob);
     });
   }
+  
   async function uploadTo(path, blob) {
-    const ref = storage.ref().child(path);
-    await ref.put(blob);
-    return await ref.getDownloadURL();
-  }
-  async function safeUploadOrEmbed(path, blob) {
     try {
-      if (!navigator.onLine) throw new Error('offline');
-      return { url: await uploadTo(path, blob), embedded: null };
-    } catch {
-      return { url: null, embedded: await blobToDataURL(blob) };
+      console.log('[uploadTo] Iniciando subida a:', path);
+      console.log('[uploadTo] Tamaño del blob:', blob.size, 'bytes');
+      console.log('[uploadTo] Tipo de blob:', blob.type);
+      console.log('[uploadTo] Usuario autenticado:', auth.currentUser?.email);
+      
+      const ref = storage.ref().child(path);
+      console.log('[uploadTo] Referencia creada, iniciando put...');
+      
+      // Agregar metadatos
+      const metadata = {
+        contentType: 'image/jpeg',
+        customMetadata: {
+          uploadedBy: auth.currentUser?.email,
+          uploadedAt: new Date().toISOString()
+        }
+      };
+      
+      const uploadTask = await ref.put(blob, metadata);
+      console.log('[uploadTo] ✅ Upload completado, metadata:', uploadTask.metadata);
+      
+      const downloadURL = await ref.getDownloadURL();
+      console.log('[uploadTo] ✅ Download URL obtenida:', downloadURL);
+      return downloadURL;
+    } catch (err) {
+      console.error('[uploadTo] ❌ Error en uploadTo');
+      console.error('[uploadTo] Código:', err.code);
+      console.error('[uploadTo] Mensaje:', err.message);
+      console.error('[uploadTo] Stack completo:', err);
+      
+      // Detalles adicionales
+      if (err.code === 'storage/unauthorized') {
+        console.error('[uploadTo] ❌ PROBLEMA: No tienes permisos en Firebase Storage');
+      } else if (err.code === 'storage/unknown') {
+        console.error('[uploadTo] ⚠️ Error desconocido de Storage. Revisa las reglas de Firestore');
+      }
+      
+      throw err;
+    }
+  }
+  
+  async function safeUploadOrEmbed(path, blob) {
+    console.log('[safeUploadOrEmbed] Iniciando con path:', path, 'online:', navigator.onLine);
+    try {
+      if (!navigator.onLine) {
+        console.log('[safeUploadOrEmbed] ⚠️ Offline detectado, usando fallback base64');
+        throw new Error('offline');
+      }
+      
+      console.log('[safeUploadOrEmbed] 🌐 Online, intentando subir a Storage...');
+      const url = await uploadTo(path, blob);
+      console.log('[safeUploadOrEmbed] ✅ Subida exitosa');
+      return { url: url, embedded: null };
+    } catch (err) {
+      console.log('[safeUploadOrEmbed] ⚠️ Fallo en subida, usando base64 embebido. Error:', err.message);
+      const embedded = await blobToDataURL(blob);
+      console.log('[safeUploadOrEmbed] ✅ Base64 embebido creado, length:', embedded.length);
+      return { url: null, embedded: embedded };
     }
   }
   const MAX_EMBED_LEN = 600 * 1024;
@@ -298,10 +367,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Guardar Incidencia ---
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    console.log('[SUBMIT] 🚀 Iniciando envío del formulario');
+    
     const tipoIncidente    = (tipoIncidenteSelect?.value || '').trim();
     const detalleIncidente = (detalleIncidenteSelect?.value || '').trim();
     const nivelRiesgo      = (nivelRiesgoSelect?.value || '').trim();
     const comentario       = (comentarioEl?.value || '').trim();
+
+    console.log('[SUBMIT] Validando campos:', {tipoIncidente, detalleIncidente, nivelRiesgo, comentarioLen: comentario.length});
 
     if (!tipoIncidente || !detalleIncidente || !nivelRiesgo || !comentario || comentario.length < 5) {
       UX.alert('Aviso', 'Complete todos los campos requeridos (comentario mínimo 5 caracteres).');
@@ -310,33 +383,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
     UX.show('Guardando incidente…');
     try {
+      console.log('[SUBMIT] ✅ Campos válidos');
       const { CLIENTE, UNIDAD, NOMBRES, APELLIDOS, PUESTO } = currentUserProfile;
+      console.log('[SUBMIT] Datos del usuario:', {CLIENTE, UNIDAD, NOMBRES, APELLIDOS});
+      
       const stamp = Date.now();
+      console.log('[SUBMIT] Timestamp:', stamp);
 
       let fotoURL = null, fotoEmbedded = null;
       if (pendingPhoto) {
+        console.log('[SUBMIT] 📸 Foto pendiente detectada, tamaño:', pendingPhoto.size, 'bytes');
         const r = await safeUploadOrEmbed(`incidencias/${CLIENTE}/${UNIDAD}/${stamp}_foto.jpg`, pendingPhoto);
-        fotoURL = r.url; fotoEmbedded = r.embedded;
+        fotoURL = r.url; 
+        fotoEmbedded = r.embedded;
+        console.log('[SUBMIT] 📸 Procesamiento de foto completado:', {fotoURL: !!fotoURL, fotoEmbeddedLen: fotoEmbedded?.length || 0});
+      } else {
+        console.log('[SUBMIT] ⚠️ No hay foto pendiente');
       }
-      if (fotoEmbedded && fotoEmbedded.length > MAX_EMBED_LEN) fotoEmbedded = null;
+      
+      if (fotoEmbedded && fotoEmbedded.length > MAX_EMBED_LEN) {
+        console.log('[SUBMIT] ⚠️ Base64 muy grande, descartando. Length:', fotoEmbedded.length, 'MAX:', MAX_EMBED_LEN);
+        fotoEmbedded = null;
+      }
 
-      const ref = await db.collection('INCIDENCIAS_REGISTRADAS').add({
+      console.log('[SUBMIT] 💾 Guardando en Firestore...');
+      const incidenteData = {
         cliente: CLIENTE,
         unidad : UNIDAD,
         puesto : PUESTO || null,
         registradoPor: `${NOMBRES || ''} ${APELLIDOS || ''}`.trim(),
         tipoIncidente,
         detalleIncidente,
-        Nivelderiesgo: nivelRiesgo, // <— campo solicitado
+        Nivelderiesgo: nivelRiesgo,
         comentario,
         estado: 'Pendiente',
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         ...(fotoURL ? { fotoURL } : {}),
         ...(fotoEmbedded ? { fotoEmbedded } : {}),
-      });
+      };
+      
+      console.log('[SUBMIT] Documento a guardar:', incidenteData);
+      const ref = await db.collection('INCIDENCIAS_REGISTRADAS').add(incidenteData);
+      console.log('[SUBMIT] ✅ Documento guardado en Firestore, ID:', ref.id);
 
       // Reintento de subida si se guardó embebido (offline)
       if (fotoEmbedded && window.OfflineQueue) {
+        console.log('[SUBMIT] ⚠️ Foto embebida detectada, añadiendo a OfflineQueue para reintento');
         await OfflineQueue.add({
           type: 'incidencia-upload',
           docPath: `INCIDENCIAS_REGISTRADAS/${ref.id}`,
@@ -348,9 +440,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       UX.hide();
+      console.log('[SUBMIT] ✅✅ Incidente guardado exitosamente');
       UX.alert('Éxito', 'Incidente guardado correctamente.', () => window.location.href = 'menu.html');
     } catch (err) {
-      console.error(err); UX.hide();
+      console.error('[SUBMIT] ❌ Error completo:', err);
+      console.error('[SUBMIT] Código de error:', err.code);
+      console.error('[SUBMIT] Mensaje:', err.message);
+      console.error('[SUBMIT] Stack:', err.stack);
+      UX.hide();
       UX.alert('Error', err.message || 'No fue posible guardar el incidente.');
     }
   });

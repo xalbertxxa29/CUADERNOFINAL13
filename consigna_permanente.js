@@ -41,13 +41,23 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       UX.show('Procesando imagen…');
       const opt = { maxSizeMB:0.5, maxWidthOrHeight:1280, useWebWorker:true, fileType:'image/jpeg' };
-      pendingPhoto = await imageCompression(f, opt);
+      
+      // Intentar usar imageCompression, si no existe usar fallback
+      if (typeof imageCompression !== 'undefined') {
+        pendingPhoto = await imageCompression(f, opt);
+      } else {
+        console.warn('imageCompression no disponible, usando imagen original');
+        pendingPhoto = f;
+      }
+      
       fotoPreview.src = URL.createObjectURL(pendingPhoto);
       fotoPreview.hidden = false;
     } catch (e) {
-      console.error(e);
-      UX.alert('Aviso','No se pudo procesar la imagen.');
-      pendingPhoto = null; fotoPreview.hidden = true; fotoPreview.src = '';
+      console.error('Error procesando imagen:',e);
+      UX.alert('Aviso','No se pudo procesar la imagen. Se usará la original.');
+      pendingPhoto = f; // Usar imagen original como fallback
+      fotoPreview.src = URL.createObjectURL(f);
+      fotoPreview.hidden = false;
     } finally { UX.hide(); }
   });
 

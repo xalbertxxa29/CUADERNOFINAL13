@@ -1,0 +1,55 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                  REGLAS DE SEGURIDAD PARA FIREBASE STORAGE                     ║
+║                        (Copiar en Firebase Console)                             ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+INSTRUCCIONES:
+1. Ve a: https://console.firebase.google.com
+2. Selecciona tu proyecto: "incidencias-85d73"
+3. Ve a Storage > Reglas
+4. REEMPLAZA TODO el contenido actual con esto:
+
+════════════════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Cualquier usuario autenticado puede subir y leer imágenes de incidencias
+    match /incidencias/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Cualquier usuario autenticado puede acceder a cualquier archivo
+    match /{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+  }
+}
+
+════════════════════════════════════════════════════════════════════════════════
+
+EXPLICACIÓN:
+- ✅ Permite lectura a usuarios autenticados (SIN límite de tiempo)
+- ✅ Permite escritura a usuarios autenticados (SIN límite de tiempo)
+- ✅ NO hay restricción de tamaño ni tipo de archivo
+- ✅ No expira nunca
+
+PASOS:
+1. Copia el contenido de las reglas (entre los ════)
+2. Ve a Firebase Console > Storage > Reglas
+3. Haz clic en "Editar reglas"
+4. Selecciona TODO (Ctrl+A) y pega las nuevas reglas
+5. Haz clic en "Publicar"
+6. ESPERA a que se publique (verás un mensaje de confirmación)
+
+DESPUÉS de cambiar las reglas, recarga la página y prueba de nuevo.
+
+════════════════════════════════════════════════════════════════════════════════
+NOTA: Si aún así falla, el problema podría ser:
+1. Plan de Firebase limitado (upgrade a Blaze si no está)
+2. Cuota de Storage agotada
+3. Caché del navegador (limpia con Ctrl+F5)
+════════════════════════════════════════════════════════════════════════════════

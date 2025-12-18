@@ -1359,55 +1359,49 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const overlay = mostrarOverlay('Buscando QR en la base de datos...');
 
-      // Buscar el QR en la colección Rondas_QR
-      const snapshot = await db.collection('Rondas_QR').get();
-      let puntoEncontrado = null;
-      let rondaEncontrada = null;
+      // Buscar el QR en la colección QR_CODES
+      const snapshot = await db.collection('QR_CODES').get();
+      let qrEncontrado = null;
 
       snapshot.forEach(doc => {
-        const ronda = doc.data();
+        const qr = doc.data();
         
-        // Validar que la ronda perteneza al cliente y unidad del usuario
-        if ((ronda.cliente || '').toUpperCase() !== userCtx.cliente ||
-            (ronda.unidad || '').toUpperCase() !== userCtx.unidad) {
-          return; // Saltar rondas que no pertenecen al usuario
+        // Validar que el QR perteneza al cliente y unidad del usuario
+        if ((qr.cliente || '').toUpperCase() !== userCtx.cliente ||
+            (qr.unidad || '').toUpperCase() !== userCtx.unidad) {
+          return; // Saltar QRs que no pertenecen al usuario
         }
         
-        const puntos = Array.isArray(ronda.puntosRonda)
-          ? ronda.puntosRonda
-          : Object.values(ronda.puntosRonda || {});
-
-        puntos.forEach((punto, idx) => {
-          if (punto.qrId && punto.qrId.trim() === codigoQR.trim()) {
-            puntoEncontrado = punto;
-            rondaEncontrada = ronda;
-          }
-        });
+        // Comparar el ID del QR
+        if (qr.id && qr.id.trim() === codigoQR.trim()) {
+          qrEncontrado = qr;
+        }
       });
 
       ocultarOverlay();
 
-      if (!puntoEncontrado) {
+      if (!qrEncontrado) {
         console.error('[QR Manual] QR no encontrado en la BD o no pertenece a tu cliente/unidad');
+        console.log('[QR Manual] Buscado:', codigoQR, 'Cliente:', userCtx.cliente, 'Unidad:', userCtx.unidad);
         mostrarErrorQRManual(modal);
         return;
       }
 
-      console.log('[QR Manual] ✅ QR encontrado:', puntoEncontrado.nombre);
+      console.log('[QR Manual] ✅ QR encontrado:', qrEncontrado.nombre || qrEncontrado.id);
 
-      const tienePreguntas = puntoEncontrado.questions && Object.keys(puntoEncontrado.questions).length > 0;
+      const tienePreguntas = qrEncontrado.questions && Object.keys(qrEncontrado.questions).length > 0;
 
       if (tienePreguntas) {
         if (modal) modal.remove();
         scannerActivo = false;
-        mostrarFormularioRondaManual(codigoQR, puntoEncontrado, rondaEncontrada);
+        mostrarFormularioRondaManual(codigoQR, qrEncontrado);
       } else {
         const overlay = mostrarOverlay('Guardando registro...');
-        await guardarRegistroRondaManual(codigoQR, puntoEncontrado, rondaEncontrada, {}, null);
+        await guardarRegistroRondaManual(codigoQR, qrEncontrado, {}, null);
         ocultarOverlay();
         if (modal) modal.remove();
         scannerActivo = false;
-        mostrarResumenRondaManual(puntoEncontrado);
+        mostrarResumenRondaManual(qrEncontrado);
       }
     } catch (e) {
       console.error('[Ronda Manual] Error procesando:', e);
@@ -1462,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ===================== MOSTRAR FORMULARIO PARA RONDA MANUAL =====================
-  function mostrarFormularioRondaManual(codigoQR, punto, ronda) {
+  function mostrarFormularioRondaManual(codigoQR, qr) {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -1482,14 +1476,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const header = document.createElement('div');
     header.style.cssText = `margin-bottom: 25px;`;
     header.innerHTML = `
-      <h2 style="margin: 0; color: #fff; font-size: 1.3em;">${punto.nombre}</h2>
+      <h2 style="margin: 0; color: #fff; font-size: 1.3em;">${qr.nombre || qr.id}</h2>
       <p style="margin: 8px 0 0 0; color: #ccc; font-size: 0.9em;">📝 Responde las preguntas</p>
     `;
     container.appendChild(header);
 
     // Preguntas
     const respuestasObj = {};
-    let preguntas = punto.questions || {};
+    let preguntas = qr.questions || {};
 
     // Si preguntas es array, convertir a objeto
     if (Array.isArray(preguntas)) {
@@ -1630,10 +1624,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const loadingOverlay = mostrarOverlay('Guardando registro...');
       try {
         const fotoBase64 = canvas.dataset.fotoBase64 || null;
-        await guardarRegistroRondaManual(codigoQR, punto, ronda, respuestasObj, fotoBase64);
+        await guardarRegistroRondaManual(codigoQR, qr, respuestasObj, fotoBase64);
         ocultarOverlay();
         overlay.remove();
-        mostrarResumenRondaManual(punto);
+        mostrarResumenRondaManual(qr);
       } catch (e) {
         ocultarOverlay();
         console.error('[Foto Manual] Error:', e);
@@ -1662,7 +1656,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ===================== GUARDAR REGISTRO RONDA MANUAL =====================
-  async function guardarRegistroRondaManual(codigoQR, punto, ronda, respuestas, fotoBase64) {
+  async function guardarRegistroRondaManual(codigoQR, qr, respuestas, fotoBase64) {
     try {
       const ahora = new Date();
       const fechaHora = ahora.toLocaleString('es-ES', {
@@ -1697,10 +1691,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         cliente: userCtx.cliente,
         unidad: userCtx.unidad,
         puesto: userCtx.puesto,
-        nombrePunto: punto.nombre,
-        qrId: punto.qrId,
+        nombrePunto: qr.nombre || qr.id,
+        qrId: qr.id || codigoQR,
         codigoQRLeido: codigoQR,
-        preguntas: punto.questions || {},
+        preguntas: qr.questions || {},
         respuestas: respuestas,
         foto: fotoBase64,
         fechaHora: fechaHora,

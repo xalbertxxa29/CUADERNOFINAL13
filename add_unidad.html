@@ -75,17 +75,30 @@
       UI.showOverlay('Guardando unidad...');
 
       try {
-        const ref = db.collection('CLIENTE_UNIDAD').doc(cliente);
+        // Estructura B: CLIENTE_UNIDAD/{cliente}/UNIDADES/{unidad}
+        const clienteRef = db.collection('CLIENTE_UNIDAD').doc(cliente);
+        const unidadRef = clienteRef.collection('UNIDADES').doc(unidad);
+        
         await db.runTransaction(async (tx) => {
-          const snap = await tx.get(ref);
-          if (!snap.exists) {
-            tx.set(ref, { unidades: { [unidad]: primer ? [primer] : [] } });
-          } else {
-            const data = snap.data() || {};
-            const unidades = data.unidades || {};
-            if (!unidades[unidad]) unidades[unidad] = [];
-            if (primer && !unidades[unidad].includes(primer)) unidades[unidad].push(primer);
-            tx.update(ref, { unidades });
+          // Crear cliente si no existe
+          const clienteDoc = await tx.get(clienteRef);
+          if (!clienteDoc.exists) {
+            tx.set(clienteRef, { createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+          }
+          
+          // Crear unidad
+          const unidadDoc = await tx.get(unidadRef);
+          if (!unidadDoc.exists) {
+            tx.set(unidadRef, { createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+          }
+          
+          // Si hay primer puesto, crear en subcolección PUESTOS
+          if (primer) {
+            const puestoRef = unidadRef.collection('PUESTOS').doc(primer);
+            const puestoDoc = await tx.get(puestoRef);
+            if (!puestoDoc.exists) {
+              tx.set(puestoRef, { createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+            }
           }
         });
 

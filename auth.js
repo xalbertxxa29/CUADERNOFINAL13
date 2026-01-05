@@ -209,7 +209,7 @@
     }
   }
 
-  // ========= Carga UNIDADES (multi-esquema) =========
+  // ========= Carga UNIDADES (Estructura B: Subcolecciones) =========
   async function loadUnidades(cliente) {
     if (!selUnidad || !selPuesto) return;
     selUnidad.innerHTML = '<option value="" disabled selected>Cargando…</option>';
@@ -220,26 +220,11 @@
     try {
       const base = db.collection('CLIENTE_UNIDAD').doc(cliente);
 
-      // (A) Subcolección UNIDADES
-      const subSnap = await base.collection('UNIDADES').get();
-      let unidades = [];
-      if (!subSnap.empty) {
-        subSnap.forEach(d => unidades.push(d.id));
-        console.log('[auth] UNIDADES desde subcolección:', unidades);
-      } else {
-        // (B) Campo "unidades" en el doc del cliente (objeto o array)
-        const cliDoc = await base.get();
-        const data = cliDoc.data() || {};
-        if (Array.isArray(data.unidades)) {
-          unidades = data.unidades.slice();
-          console.log('[auth] UNIDADES desde array en doc cliente:', unidades);
-        } else if (data.unidades && typeof data.unidades === 'object') {
-          unidades = Object.keys(data.unidades);
-          console.log('[auth] UNIDADES desde objeto en doc cliente:', unidades);
-        } else {
-          console.log('[auth] No se encontraron UNIDADES en ningún esquema.');
-        }
-      }
+      // Leer subcolección UNIDADES
+      const unidadesSnapshot = await base.collection('UNIDADES').get();
+      const unidades = [];
+      unidadesSnapshot.forEach(doc => unidades.push(doc.id));
+      console.log('[auth] UNIDADES desde subcolección:', unidades);
 
       if (!unidades.length) {
         selUnidad.innerHTML = '<option value="" disabled>No hay unidades</option>';
@@ -262,7 +247,7 @@
     }
   }
 
-  // ========= Carga PUESTOS (multi-esquema) =========
+  // ========= Carga PUESTOS (Estructura B: Subcolecciones) =========
   async function loadPuestos(cliente, unidad) {
     if (!selPuesto) return;
     selPuesto.innerHTML = '<option value="" disabled selected>Cargando…</option>';
@@ -272,30 +257,11 @@
       const baseCliente = db.collection('CLIENTE_UNIDAD').doc(cliente);
       const baseUnidad  = baseCliente.collection('UNIDADES').doc(unidad);
 
-      let puestos = [];
-
-      // (1) Subcolección PUESTOS
-      const sub = await baseUnidad.collection('PUESTOS').get();
-      if (!sub.empty) {
-        sub.forEach(d => puestos.push(d.id));
-        console.log('[auth] PUESTOS desde subcolección:', puestos);
-      }
-
-      // (2) Campo array "puestos" en doc de la unidad
-      const uDoc = await baseUnidad.get();
-      const uData = uDoc.data() || {};
-      if (Array.isArray(uData.puestos)) {
-        uData.puestos.forEach(p => { if (!puestos.includes(p)) puestos.push(p); });
-        console.log('[auth] PUESTOS desde campo array en unidad:', uData.puestos);
-      }
-
-      // (3) Campo anidado en doc del cliente: unidades[unidad] (array)
-      const cDoc = await baseCliente.get();
-      const cData = cDoc.data() || {};
-      if (cData.unidades && typeof cData.unidades === 'object' && Array.isArray(cData.unidades[unidad])) {
-        cData.unidades[unidad].forEach(p => { if (!puestos.includes(p)) puestos.push(p); });
-        console.log('[auth] PUESTOS desde doc cliente.unidades["'+unidad+'"]:', cData.unidades[unidad]);
-      }
+      // Leer subcolección PUESTOS
+      const puestosSnapshot = await baseUnidad.collection('PUESTOS').get();
+      const puestos = [];
+      puestosSnapshot.forEach(doc => puestos.push(doc.id));
+      console.log('[auth] PUESTOS desde subcolección:', puestos);
 
       if (!puestos.length) {
         selPuesto.innerHTML = '<option value="" disabled>No hay puestos</option>';

@@ -321,40 +321,70 @@ document.addEventListener("DOMContentLoaded", () => {
   async function cargarDatosCU(cliPre, uniPre) {
     UI.showOverlay("Cargando catálogos...");
     try {
-      const snap = await db.collection("CLIENTE_UNIDAD").get();
-      clientesDataCU = {};
-      snap.forEach(doc => (clientesDataCU[doc.id] = doc.data().unidades || {}));
+      // Estructura B: Leer clientes desde CLIENTE_UNIDAD
+      const clientesSnap = await db.collection("CLIENTE_UNIDAD").get();
+      const clientes = [];
+      clientesSnap.forEach(doc => clientes.push(doc.id));
+      clientes.sort();
 
-      const clientes = Object.keys(clientesDataCU).sort();
-      UI.createSearchableDropdown(cuClienteInput, cuClienteList, clientes, cli => {
+      UI.createSearchableDropdown(cuClienteInput, cuClienteList, clientes, async cli => {
         cuUnidadInput.disabled = false;
         // 💾 Guardar cliente seleccionado offline
         if (typeof offlineStorage !== 'undefined') {
           offlineStorage.setGlobalData('selected-cliente', cli).catch(e => console.warn('Error guardando cliente:', e));
         }
-        const unidades = Object.keys(clientesDataCU[cli] || {}).sort();
-        UI.createSearchableDropdown(cuUnidadInput, cuUnidadList, unidades, uni => {
-          cuPuestoInput.disabled = false;
-          // 💾 Guardar unidad seleccionada offline
-          if (typeof offlineStorage !== 'undefined') {
-            offlineStorage.setGlobalData('selected-unidad', uni).catch(e => console.warn('Error guardando unidad:', e));
-          }
-          const puestos = (clientesDataCU[cli]?.[uni] || []).sort();
-          UI.createSearchableDropdown(cuPuestoInput, cuPuestoList, puestos, pue => {
-            // 💾 Guardar puesto seleccionado offline
+
+        // Cargar unidades del cliente seleccionado
+        try {
+          const unidadesSnap = await db.collection("CLIENTE_UNIDAD").doc(cli).collection("UNIDADES").get();
+          const unidades = [];
+          unidadesSnap.forEach(doc => unidades.push(doc.id));
+          unidades.sort();
+
+          UI.createSearchableDropdown(cuUnidadInput, cuUnidadList, unidades, async uni => {
+            cuPuestoInput.disabled = false;
+            // 💾 Guardar unidad seleccionada offline
             if (typeof offlineStorage !== 'undefined') {
-              offlineStorage.setGlobalData('selected-puesto', pue).catch(e => console.warn('Error guardando puesto:', e));
+              offlineStorage.setGlobalData('selected-unidad', uni).catch(e => console.warn('Error guardando unidad:', e));
+            }
+
+            // Cargar puestos de la unidad seleccionada
+            try {
+              const puestosSnap = await db.collection("CLIENTE_UNIDAD").doc(cli).collection("UNIDADES").doc(uni).collection("PUESTOS").get();
+              const puestos = [];
+              puestosSnap.forEach(doc => puestos.push(doc.id));
+              puestos.sort();
+
+              UI.createSearchableDropdown(cuPuestoInput, cuPuestoList, puestos, pue => {
+                // 💾 Guardar puesto seleccionado offline
+                if (typeof offlineStorage !== 'undefined') {
+                  offlineStorage.setGlobalData('selected-puesto', pue).catch(e => console.warn('Error guardando puesto:', e));
+                }
+              });
+            } catch (e) {
+              console.error('[cargarDatosCU] Error cargando puestos:', e);
+              UI.createSearchableDropdown(cuPuestoInput, cuPuestoList, [], () => {});
             }
           });
-        });
+        } catch (e) {
+          console.error('[cargarDatosCU] Error cargando unidades:', e);
+          UI.createSearchableDropdown(cuUnidadInput, cuUnidadList, [], () => {});
+        }
       });
 
       if (cliPre) {
         cuClienteInput.value = cliPre;
         cuUnidadInput.disabled = false;
-        const unidades = Object.keys(clientesDataCU[cliPre] || {}).sort();
-        UI.createSearchableDropdown(cuUnidadInput, cuUnidadList, unidades);
-        if (uniPre) cuUnidadInput.value = uniPre;
+        try {
+          const unidadesSnap = await db.collection("CLIENTE_UNIDAD").doc(cliPre).collection("UNIDADES").get();
+          const unidades = [];
+          unidadesSnap.forEach(doc => unidades.push(doc.id));
+          unidades.sort();
+          UI.createSearchableDropdown(cuUnidadInput, cuUnidadList, unidades);
+          if (uniPre) cuUnidadInput.value = uniPre;
+        } catch (e) {
+          console.error('[cargarDatosCU] Error preseleccionando:', e);
+        }
       }
     } catch (e) {
       console.error(e);

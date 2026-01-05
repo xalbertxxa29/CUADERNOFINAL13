@@ -57,18 +57,33 @@
       const puesto  = puestoInput.value.trim().toUpperCase();
       if (!cliente || !unidad || !puesto) return;
 
-      const ref = db.collection('CLIENTE_UNIDAD').doc(cliente);
+      const guardarBtn = document.getElementById('guardar-btn');
+      guardarBtn.disabled = true;
+      guardarBtn.textContent = 'Guardando...';
       UI.showOverlay('Guardando...');
+      
       try {
+        // Estructura B: CLIENTE_UNIDAD/{cliente}/UNIDADES/{unidad}/PUESTOS/{puesto}
+        const clienteRef = db.collection('CLIENTE_UNIDAD').doc(cliente);
+        const unidadRef = clienteRef.collection('UNIDADES').doc(unidad);
+        const puestoRef = unidadRef.collection('PUESTOS').doc(puesto);
+        
         await db.runTransaction(async (transaction) => {
-          const doc = await transaction.get(ref);
-          if (!doc.exists) throw new Error("El cliente seleccionado no existe.");
+          // Validar que cliente existe
+          const clienteDoc = await transaction.get(clienteRef);
+          if (!clienteDoc.exists) throw new Error("El cliente seleccionado no existe.");
 
-          const data = doc.data();
-          const unidades = data.unidades || {};
-          if (!unidades[unidad]) throw new Error("La unidad seleccionada no existe para este cliente.");
-          if (!unidades[unidad].includes(puesto)) { unidades[unidad].push(puesto); }
-          transaction.update(ref, { unidades });
+          // Validar que unidad existe
+          const unidadDoc = await transaction.get(unidadRef);
+          if (!unidadDoc.exists) throw new Error("La unidad seleccionada no existe para este cliente.");
+
+          // Crear puesto si no existe
+          const puestoDoc = await transaction.get(puestoRef);
+          if (!puestoDoc.exists) {
+            transaction.set(puestoRef, { createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+          } else {
+            throw new Error("El puesto ya existe.");
+          }
         });
 
         successMessage.style.display = 'block';
@@ -80,6 +95,8 @@
         alert('Ocurrió un error al guardar: ' + error.message);
       } finally {
         UI.hideOverlay();
+        guardarBtn.disabled = false;
+        guardarBtn.textContent = 'Guardar';
       }
     });
   </script>

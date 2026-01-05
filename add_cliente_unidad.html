@@ -40,20 +40,28 @@
       guardarBtn.disabled = true; guardarBtn.textContent = 'Guardando...';
 
       try {
-        const ref = db.collection('CLIENTE_UNIDAD').doc(cliente);
+        // Estructura B: CLIENTE_UNIDAD/{cliente}/UNIDADES/{unidad}/PUESTOS/{puesto}
+        const clienteRef = db.collection('CLIENTE_UNIDAD').doc(cliente);
+        const unidadRef = clienteRef.collection('UNIDADES').doc(unidad);
+        const puestoRef = unidadRef.collection('PUESTOS').doc(puesto);
+        
         await db.runTransaction(async (transaction) => {
-          const doc = await transaction.get(ref);
-          if (!doc.exists) {
-            transaction.set(ref, { unidades: { [unidad]: [puesto] } });
-          } else {
-            const data = doc.data();
-            const unidades = data.unidades || {};
-            if (unidades[unidad]) {
-              if (!unidades[unidad].includes(puesto)) unidades[unidad].push(puesto);
-            } else {
-              unidades[unidad] = [puesto];
-            }
-            transaction.update(ref, { unidades });
+          // Crear cliente si no existe
+          const clienteDoc = await transaction.get(clienteRef);
+          if (!clienteDoc.exists) {
+            transaction.set(clienteRef, { createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+          }
+          
+          // Crear unidad si no existe
+          const unidadDoc = await transaction.get(unidadRef);
+          if (!unidadDoc.exists) {
+            transaction.set(unidadRef, { createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+          }
+          
+          // Crear puesto si no existe
+          const puestoDoc = await transaction.get(puestoRef);
+          if (!puestoDoc.exists) {
+            transaction.set(puestoRef, { createdAt: firebase.firestore.FieldValue.serverTimestamp() });
           }
         });
         successMessage.style.display = 'block';

@@ -1,26 +1,26 @@
 // ingresar_informacion.js (v51) — Guarda en CUADERNO con reintento offline (cola)
 document.addEventListener('DOMContentLoaded', () => {
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-  const auth     = firebase.auth();
-  const db       = firebase.firestore();
-  const storage  = firebase.storage();
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const storage = firebase.storage();
 
   // Sesión persistente (no se cierra sola)
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => { });
 
   const UX = {
     show: (m) => (window.UI && UI.showOverlay) ? UI.showOverlay(m) : void 0,
     hide: () => (window.UI && UI.hideOverlay) ? UI.hideOverlay() : void 0,
-    alert: (t, m, cb) => (window.UI && UI.alert) ? UI.alert(t, m, cb) : (alert(`${t}\n\n${m||''}`), cb && cb())
+    alert: (t, m, cb) => (window.UI && UI.alert) ? UI.alert(t, m, cb) : (alert(`${t}\n\n${m || ''}`), cb && cb())
   };
 
   // DOM
-  const form        = document.getElementById('info-form');
-  const comentario  = document.getElementById('comentario');
-  const fotoInput   = document.getElementById('foto-input');
+  const form = document.getElementById('info-form');
+  const comentario = document.getElementById('comentario');
+  const fotoInput = document.getElementById('foto-input');
   const fotoPreview = document.getElementById('foto-preview');
-  const canvas      = document.getElementById('firma-canvas');
-  const btnClear    = document.getElementById('clear-firma');
+  const canvas = document.getElementById('firma-canvas');
+  const btnClear = document.getElementById('clear-firma');
 
   // Firma
   const sigPad = new SignaturePad(canvas, { backgroundColor: 'rgb(255,255,255)' });
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       UX.show('Procesando imagen…');
       const opt = { maxSizeMB: 0.5, maxWidthOrHeight: 1280, useWebWorker: true, fileType: 'image/jpeg' };
-      
+
       // Intentar usar imageCompression, si no existe usar fallback
       if (typeof imageCompression !== 'undefined') {
         pendingPhoto = await imageCompression(f, opt);
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('imageCompression no disponible, usando imagen original');
         pendingPhoto = f;
       }
-      
+
       fotoPreview.src = URL.createObjectURL(pendingPhoto);
       fotoPreview.hidden = false;
     } catch (e) {
@@ -88,8 +88,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pequeño delay para hidratación en WebView
     if (!user) { setTimeout(() => { if (!auth.currentUser) window.location.href = 'index.html'; }, 150); return; }
     const userId = user.email.split('@')[0];
-    const d = await db.collection('USUARIOS').doc(userId).get().catch(()=>null);
-    if (!d || !d.exists) { UX.alert('Error','No se encontró tu perfil.'); window.location.href='menu.html'; return; }
+    let d = await db.collection('USUARIOS').doc(userId).get().catch(() => null);
+
+    // Fallback Offline
+    if ((!d || !d.exists) && window.offlineStorage) {
+      try {
+        const offlineData = await window.offlineStorage.getUserData();
+        if (offlineData && offlineData.id === userId) {
+          console.log('[Offline] Usando perfil cacheado (Cuaderno)');
+          profile = offlineData;
+          setTimeout(resizeCanvas, 120);
+          return;
+        }
+      } catch (e) { }
+    }
+
+    if (!d || !d.exists) { UX.alert('Error', 'No se encontró tu perfil.'); window.location.href = 'menu.html'; return; }
     profile = d.data(); // { CLIENTE, UNIDAD, PUESTO, NOMBRES, APELLIDOS, ... }
     setTimeout(resizeCanvas, 120);
   });

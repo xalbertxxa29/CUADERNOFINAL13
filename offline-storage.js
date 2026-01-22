@@ -53,7 +53,7 @@ class OfflineStorage {
       return new Promise((resolve, reject) => {
         const tx = db.transaction(this.STORES.user, 'readwrite');
         const store = tx.objectStore(this.STORES.user);
-        
+
         const data = {
           key: 'current-user',
           email: userData.email,
@@ -193,3 +193,4 @@ class OfflineStorage {
 
 // Instancia global
 const offlineStorage = new OfflineStorage();
+window.offlineStorage = offlineStorage;

@@ -182,8 +182,22 @@ document.addEventListener('DOMContentLoaded', () => {
       currentUserProfile = prof.data();
       await cargarTiposIncidente();
     } catch (e) {
-      console.error(e); UX.alert('Error', 'No se pudo cargar tu perfil.');
-      window.location.href = 'menu.html';
+      console.error(e);
+      // Fallback OFFLINE
+      if (window.offlineStorage) {
+        try {
+          const offlineUser = await window.offlineStorage.getUserData();
+          if (offlineUser && offlineUser.id === user.email.split('@')[0]) {
+             console.log('[Offline] Usando perfil cacheado');
+             currentUserProfile = offlineUser;
+             await cargarTiposIncidente();
+             return; // Éxito offline
+          }
+        } catch (errOffline) { console.error('Error offline fallback:', errOffline); }
+      }
+      
+      UX.alert('Error', 'No se pudo cargar tu perfil. Revisa tu conexión.');
+      // window.location.href = 'menu.html'; // No redirigir agresivamente
     } finally { UX.hide(); }
   });
 

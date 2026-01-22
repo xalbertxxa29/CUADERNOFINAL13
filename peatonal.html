@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Acceso Peatonal</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=69"/>
-  <link rel="stylesheet" href="webview.css?v=69"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"/>
+  <link rel="stylesheet" href="style.css?v=69" />
+  <link rel="stylesheet" href="webview.css?v=69" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
 </head>
+
 <body>
   <div class="page form-page">
     <div class="card">
@@ -43,7 +45,8 @@
         <div class="input-group">
           <label for="numeroDocumento">N° Documento</label>
           <input id="numeroDocumento" type="text" required autocomplete="off" inputmode="numeric" />
-          <small id="docHelp" class="muted">Para DNI: exactamente 8 dígitos. Para PASAPORTE: exactamente 9 caracteres alfanuméricos.</small>
+          <small id="docHelp" class="muted">Para DNI: exactamente 8 dígitos. Para PASAPORTE: exactamente 9 caracteres
+            alfanuméricos.</small>
         </div>
 
         <div class="input-group">
@@ -53,12 +56,12 @@
 
         <div class="input-group">
           <label for="motivo">Motivo</label>
-          <input id="motivo" type="text" required autocomplete="off" maxlength="120"/>
+          <input id="motivo" type="text" required autocomplete="off" maxlength="120" />
         </div>
 
         <div class="input-group">
           <label for="area">Área</label>
-          <input id="area" type="text" required autocomplete="off" maxlength="60"/>
+          <input id="area" type="text" required autocomplete="off" maxlength="60" />
         </div>
 
         <div class="button-group" style="justify-content:flex-end;">
@@ -77,6 +80,7 @@
   <!-- App -->
   <script src="firebase-config.js?v=69"></script>
   <script src="initFirebase.js?v=69"></script>
+  <script src="offline-storage.js?v=69"></script>
   <script src="ui.js?v=69"></script>
   <script src="webview.js?v=69"></script>
   <script src="peatonal.js?v=69"></script>
@@ -84,4 +88,5 @@
   <!-- SW -->
   <script> if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js'); </script>
 </body>
+
 </html>

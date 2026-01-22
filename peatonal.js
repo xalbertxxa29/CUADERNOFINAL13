@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
-  const db   = firebase.firestore();
+  const db = firebase.firestore();
 
   const $ = s => document.querySelector(s);
   const form = $('#peatonal-form');
@@ -25,9 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const snap = await db.collection('USUARIOS').doc(id).get();
       if (snap.exists) {
         const d = snap.data();
-        userCtx = { 
-          id, 
-          cliente: d.CLIENTE || '', 
+        userCtx = {
+          id,
+          cliente: d.CLIENTE || '',
           unidad: d.UNIDAD || '',
           // v73: Guardar nombre completo
           nombreCompleto: `${d.NOMBRES || ''} ${d.APELLIDOS || ''}`.trim().toUpperCase()
@@ -35,24 +35,41 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         userCtx = { id, cliente: '', unidad: '', nombreCompleto: id };
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      // Fallback offline
+      if (window.offlineStorage) {
+        try {
+          const u = await window.offlineStorage.getUserData();
+          if (u && u.id === id) {
+            userCtx = {
+              id,
+              cliente: u.CLIENTE || '',
+              unidad: u.UNIDAD || '',
+              nombreCompleto: `${u.NOMBRES || ''} ${u.APELLIDOS || ''}`.trim().toUpperCase()
+            };
+            return;
+          }
+        } catch (ex) { console.warn(ex); }
+      }
+    }
   });
 
   // Reglas del documento según tipo
   function applyDocRules() {
     if (tipoDocumento.value === 'DNI') {
       numeroDocumento.value = numeroDocumento.value.replace(/\D/g, '').slice(0, 8);
-      numeroDocumento.setAttribute('maxlength','8');
-      numeroDocumento.setAttribute('minlength','8');
-      numeroDocumento.setAttribute('inputmode','numeric');
-      numeroDocumento.setAttribute('pattern','^[0-9]{8}$');
+      numeroDocumento.setAttribute('maxlength', '8');
+      numeroDocumento.setAttribute('minlength', '8');
+      numeroDocumento.setAttribute('inputmode', 'numeric');
+      numeroDocumento.setAttribute('pattern', '^[0-9]{8}$');
       docHelp.textContent = 'DNI: exactamente 8 dígitos.';
     } else if (tipoDocumento.value === 'PASAPORTE') {
       numeroDocumento.value = numeroDocumento.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9);
-      numeroDocumento.setAttribute('maxlength','9');
-      numeroDocumento.setAttribute('minlength','9');
-      numeroDocumento.setAttribute('inputmode','text');
-      numeroDocumento.setAttribute('pattern','^[A-Z0-9]{9}$');
+      numeroDocumento.setAttribute('maxlength', '9');
+      numeroDocumento.setAttribute('minlength', '9');
+      numeroDocumento.setAttribute('inputmode', 'text');
+      numeroDocumento.setAttribute('pattern', '^[A-Z0-9]{9}$');
       docHelp.textContent = 'PASAPORTE: exactamente 9 caracteres alfanuméricos.';
     } else {
       numeroDocumento.removeAttribute('maxlength');
@@ -74,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Validaciones básicas
     if (!tipoAcceso.value || !empresa.value || !tipoDocumento.value || !numeroDocumento.value ||
-        !nombres.value || !motivo.value || !area.value) {
+      !nombres.value || !motivo.value || !area.value) {
       UI.alert('Campos incompletos', 'Todos los campos son obligatorios.'); return;
     }
     // Reglas de documento
@@ -86,9 +103,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fecha/hora local (requerido)
     const now = new Date();
-    const pad = n => String(n).padStart(2,'0');
-    const fechaIngreso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-    const horaIngreso  = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const pad = n => String(n).padStart(2, '0');
+    const fechaIngreso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const horaIngreso = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
     const payload = {
       TIPO_ACCESO: toUpperIfText(tipoAcceso.value),

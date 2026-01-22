@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ingresar Información</title>
   <link rel="stylesheet" href="style.css?v=69">
   <link rel="stylesheet" href="webview.css?v=69">
@@ -11,6 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
 </head>
+
 <body>
   <div class="form-container">
     <a href="menu.html" class="btn-back"><i class="fas fa-arrow-left"></i> Atrás</a>
@@ -31,7 +33,8 @@
 
       <div class="input-group">
         <label for="firma-canvas">Firma</label>
-        <canvas id="firma-canvas" style="width:100%;height:180px;border:1px dashed #ccc;border-radius:8px;background:#fff;"></canvas>
+        <canvas id="firma-canvas"
+          style="width:100%;height:180px;border:1px dashed #ccc;border-radius:8px;background:#fff;"></canvas>
         <button type="button" id="clear-firma" class="btn-secondary">Limpiar Firma</button>
       </div>
 
@@ -44,10 +47,14 @@
   <!-- Overlay de carga -->
   <div id="loadingOverlay" hidden>
     <div class="loading-box">
-      <div class="loading-brand"><div class="loading-ring"></div></div>
+      <div class="loading-brand">
+        <div class="loading-ring"></div>
+      </div>
       <div class="loading-title">Procesando…</div>
       <div class="loading-sub">Por favor, espera un momento.</div>
-      <div class="progress-wrap"><div class="progress-bar"></div></div>
+      <div class="progress-wrap">
+        <div class="progress-bar"></div>
+      </div>
     </div>
   </div>
 
@@ -62,6 +69,7 @@
   <!-- Config + utilidades -->
   <script src="firebase-config.js?v=69"></script>
   <script src="initFirebase.js?v=69"></script>
+  <script src="offline-storage.js?v=69"></script>
   <script src="image-optimizer.js?v=1"></script>
   <script src="ui.js?v=69"></script>
   <script src="webview.js?v=69"></script>
@@ -79,4 +87,5 @@
     }
   </script>
 </body>
+
 </html>

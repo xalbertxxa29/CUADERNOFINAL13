@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Acceso Vehicular</title>
 
   <!-- Estilos -->
-  <link rel="stylesheet" href="style.css?v=69"/>
-  <link rel="stylesheet" href="webview.css?v=69"/>
+  <link rel="stylesheet" href="style.css?v=69" />
+  <link rel="stylesheet" href="webview.css?v=69" />
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
 
@@ -15,12 +16,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
 </head>
+
 <body>
   <div class="form-page">
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
         <h2 style="margin:0;">Ingreso Vehicular</h2>
-        <a href="menu.html" class="btn-secondary" style="text-decoration:none;"><i class="fas fa-arrow-left"></i> Atrás</a>
+        <a href="menu.html" class="btn-secondary" style="text-decoration:none;"><i class="fas fa-arrow-left"></i>
+          Atrás</a>
       </div>
 
       <form id="acceso-form" novalidate>
@@ -101,6 +104,8 @@
   <script src="firebase-config.js?v=69"></script>
   <script src="initFirebase.js?v=69"></script>
   <script src="offline-storage.js?v=69"></script>
+  <script src="offline-queue.js?v=70"></script>
+  <script src="sync.js?v=70"></script>
   <script src="ui.js?v=69"></script>
   <script src="webview.js?v=69"></script>
 
@@ -110,8 +115,9 @@
   <!-- SW -->
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+      navigator.serviceWorker.register('./sw.js').catch(() => { });
     }
   </script>
 </body>
+
 </html>

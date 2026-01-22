@@ -137,11 +137,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
     UI.showOverlay('Guardando…');
     try {
-      await db.collection('ACCESO_PEATONAL').add(payload);
-      UI.hideOverlay();
-      UI.alert('Éxito', 'Registro guardado correctamente.', () => {
-        window.location.href = 'menu.html';
-      });
+
+      if (!navigator.onLine) {
+        if (window.OfflineQueue) {
+          await window.OfflineQueue.add({
+            kind: 'peatonal-full',
+            collection: 'ACCESO_PEATONAL',
+            cliente: userCtx.cliente,
+            unidad: userCtx.unidad,
+            data: payload,
+            createdAt: Date.now()
+          });
+          UI.hideOverlay();
+          if (UI.toast) UI.toast('Guardado offline. Se enviará al conectar.');
+          else UI.alert('Guardado Offline', 'Registro guardado localmente.');
+
+          setTimeout(() => window.location.href = 'menu.html', 1500);
+          return;
+        } else {
+          throw new Error('Offline Queue not available');
+        }
+      }
+
+      // Online try
+      try {
+        const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout')), 4000));
+        const addPromise = db.collection('ACCESO_PEATONAL').add(payload);
+        await Promise.race([addPromise, timeoutPromise]);
+
+        UI.hideOverlay();
+        if (UI.toast) UI.toast('Registro guardado correctamente.');
+        else UI.alert('Éxito', 'Registro guardado correctly.');
+
+        setTimeout(() => window.location.href = 'menu.html', 1500);
+
+      } catch (err) {
+        console.warn('Fallo guardado online peatonal:', err);
+        if (window.OfflineQueue) {
+          await window.OfflineQueue.add({
+            kind: 'peatonal-full',
+            collection: 'ACCESO_PEATONAL',
+            cliente: userCtx.cliente,
+            unidad: userCtx.unidad,
+            data: payload,
+            createdAt: Date.now()
+          });
+          UI.hideOverlay();
+          if (UI.toast) UI.toast('Guardado offline (red inestable).');
+          setTimeout(() => window.location.href = 'menu.html', 1500);
+        } else {
+          throw err;
+        }
+      }
+
     } catch (err) {
       console.error(err);
       UI.hideOverlay();

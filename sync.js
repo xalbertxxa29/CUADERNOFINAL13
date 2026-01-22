@@ -4,7 +4,7 @@
 
   // ---- Guardas & helpers ----
   let isFlushing = false;
-  let lastRunTs  = 0;
+  let lastRunTs = 0;
 
   function dataURLtoBlob(u) {
     if (typeof u !== 'string' || !u.startsWith('data:')) return null;
@@ -50,7 +50,7 @@
     if (!navigator.onLine) return;
     if (!firebase?.apps?.length) return;
 
-    const db      = firebase.firestore?.();
+    const db = firebase.firestore?.();
     const storage = firebase.storage?.();
     if (!db || !storage) return;
 
@@ -62,16 +62,16 @@
       if (!Array.isArray(tasks) || !tasks.length) return;
 
       for (const t of tasks) {
-        const id        = t.id;
-        const baseFolder= pickBaseFolder(t);
-        const stamp     = Date.now();
+        const id = t.id;
+        const baseFolder = pickBaseFolder(t);
+        const stamp = Date.now();
 
-        const docPath   = t.docPath;
-        const cliente   = t.cliente;
-        const unidad    = t.unidad;
+        const docPath = t.docPath;
+        const cliente = t.cliente;
+        const unidad = t.unidad;
 
         // Campos soportados
-        const fotoEmbedded  = t.fotoEmbedded  || t.foto_base64 || null;
+        const fotoEmbedded = t.fotoEmbedded || t.foto_base64 || null;
         const firmaEmbedded = t.firmaEmbedded || t.firma_base64 || null;
 
         // Validaciones mínimas
@@ -107,12 +107,31 @@
             changed = true;
           }
 
-          // Aplica cambios si hubo algo que actualizar
+          // Comportamiento especial: Creación de documento completo (ej: Ronda Manual Offline)
+          if (t.kind === 'ronda-manual-full' || t.type === 'ronda-manual-full') {
+            try {
+              const payload = { ...t.data };
+              // Subir foto si viene en base64 dentro del payload
+              if (payload.foto && payload.foto.startsWith('data:')) {
+                const url = await uploadTo(storage, `rondas_manuales/${cliente}/${unidad}/${stamp}_foto.jpg`, payload.foto);
+                payload.foto = url;
+              }
+              // Agregar timestamp de subida
+              payload.sincronizadoEn = firebase.firestore.FieldValue.serverTimestamp();
+
+              await db.collection('RONDA_MANUAL').add(payload);
+              await window.OfflineQueue.remove?.(id);
+              continue; // Tarea completada
+            } catch (err) {
+              console.error('[sync] Error subiendo ronda manual:', err);
+              continue; // Reintentar luego
+            }
+          }
+
+          // Aplica cambios si hubo algo que actualizar (Flujo normal de updates)
           if (changed) {
             await db.doc(docPath).set(updates, { merge: true });
           } else {
-            // Aun si no subimos nada, podemos dejar trazas de reconexión (opcional).
-            // Descomenta si deseas marcar reconexión siempre:
             // await db.doc(docPath).set(updates, { merge: true });
           }
 

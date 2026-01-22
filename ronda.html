@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,8 +9,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.2/umd/index.min.js"></script>
 
   <!-- Estilos -->
-  <link rel="stylesheet" href="style.css?v=69"/>
-  <link rel="stylesheet" href="webview.css?v=69"/>
+  <link rel="stylesheet" href="style.css?v=69" />
+  <link rel="stylesheet" href="webview.css?v=69" />
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
 
@@ -78,6 +79,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="page">
     <header>
@@ -110,7 +112,7 @@
       <p style="color: #999; font-size: 0.95em; margin: 0 0 25px 0;">
         ¿Qué tipo de ronda deseas realizar?
       </p>
-      
+
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <button id="btn-ronda-programada" style="
           background: #3b82f6; color: white; border: none;
@@ -119,7 +121,7 @@
         ">
           <i class="fas fa-calendar-check"></i> Ronda Programada
         </button>
-        
+
         <button id="btn-ronda-manual" style="
           background: #ef4444; color: white; border: none;
           padding: 14px; border-radius: 8px; font-weight: 600;
@@ -127,48 +129,50 @@
         ">
           <i class="fas fa-qrcode"></i> Ronda Manual
         </button>
-      </div>
 
-      <button id="btn-cerrar-modal" style="
+        <button id="btn-cerrar-modal" style="
         background: transparent; color: #999; border: none;
         padding: 12px; margin-top: 15px; cursor: pointer;
         font-size: 0.9em; width: 100%;
       ">
-        Cancelar
-      </button>
+          Cancelar
+        </button>
+      </div>
     </div>
-  </div>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
 
-  <!-- Config e Inicialización -->
-  <script src="firebase-config.js?v=69"></script>
-  <script src="initFirebase.js?v=69"></script>
-  <script src="offline-storage.js?v=69"></script>
-  <script src="ui.js?v=69"></script>
-  <script src="webview.js?v=69"></script>
+    <!-- Config e Inicialización -->
+    <script src="firebase-config.js?v=69"></script>
+    <script src="initFirebase.js?v=69"></script>
+    <script src="offline-storage.js?v=69"></script>
+    <script src="ui.js?v=69"></script>
+    <script src="webview.js?v=69"></script>
 
-  <!-- Lógica Ronda v2 (mejorada) -->
-  <script src="ronda-v2.js?v=70"></script>
+    <!-- Lógica Ronda v2 (mejorada) -->
+    <script src="ronda-v2.js?v=70"></script>
 
-  <!-- Sistema de sincronización para WebView -->
-  <script src="ronda-sync.js?v=1"></script>
+    <!-- Sistema de sincronización para WebView -->
+    <script src="offline-queue.js?v=70"></script>
+    <script src="sync.js?v=70"></script>
+    <script src="ronda-sync.js?v=1"></script>
 
-  <!-- SW -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(()=>{});
-    }
+    <!-- SW -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => { });
+      }
 
-    // Botón atrás - ir a menu.html
-    document.getElementById('btn-menu')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      location.href = 'menu.html';
-    });
-  </script>
+      // Botón atrás - ir a menu.html
+      document.getElementById('btn-menu')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        location.href = 'menu.html';
+      });
+    </script>
 </body>
+
 </html>

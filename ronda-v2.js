@@ -11,14 +11,18 @@
 const RONDA_STORAGE = {
   DB_NAME: 'ronda-sessions',
   STORE_NAME: 'ronda-cache',
-  
+  QR_STORE_NAME: 'qr-cache',
+
   async openDB() {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.DB_NAME, 1);
+      const request = indexedDB.open(this.DB_NAME, 2); // Increment version for schema change
       request.onupgradeneeded = (e) => {
         const db = e.target.result;
         if (!db.objectStoreNames.contains(this.STORE_NAME)) {
           db.createObjectStore(this.STORE_NAME, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(this.QR_STORE_NAME)) {
+          db.createObjectStore(this.QR_STORE_NAME, { keyPath: 'id' }); // id = 'all-qrs'
         }
       };
       request.onsuccess = () => resolve(request.result);
@@ -70,6 +74,39 @@ const RONDA_STORAGE = {
     } catch (e) {
       console.warn('Error limpiando cache:', e);
     }
+  },
+
+  // === MÉTODOS PARA CACHÉ DE QRS ===
+  async guardarQRsEnCache(listaQRs) {
+    try {
+      const db = await this.openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.QR_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(this.QR_STORE_NAME);
+        // Guardamos toda la lista en un solo objeto para simplificar
+        const request = store.put({ id: 'valid-qrs', list: listaQRs, timestamp: Date.now() });
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => reject(request.error);
+      });
+    } catch (e) {
+      console.warn('Error guardando QRs en cache:', e);
+    }
+  },
+
+  async obtenerQRsDeCache() {
+    try {
+      const db = await this.openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.QR_STORE_NAME, 'readonly');
+        const store = tx.objectStore(this.QR_STORE_NAME);
+        const request = store.get('valid-qrs');
+        request.onsuccess = () => resolve(request.result?.list || []);
+        request.onerror = () => reject(request.error);
+      });
+    } catch (e) {
+      console.warn('Error obteniendo QRs de cache:', e);
+      return [];
+    }
   }
 };
 
@@ -98,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       background: rgba(0,0,0,0.8); display: flex; align-items: center;
       justify-content: center; z-index: 5000;
     `;
-    
+
     overlay.innerHTML = `
       <div style="text-align: center;">
         <div style="width: 50px; height: 50px; border: 4px solid #444; border-top-color: #ef4444;
@@ -111,7 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       </style>
     `;
-    
+
     document.body.appendChild(overlay);
     return overlay;
   }
@@ -141,21 +178,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         userCtx.cliente = (datos.CLIENTE || '').toUpperCase();
         userCtx.unidad = (datos.UNIDAD || '').toUpperCase();
         userCtx.puesto = datos.PUESTO || '';
-        
+
         // Obtener nombre completo para búsqueda en BD
         const nombres = (datos.NOMBRES || '').trim();
         const apellidos = (datos.APELLIDOS || '').trim();
         const nombreCompleto = `${nombres} ${apellidos}`.trim();
-        
+
         // Verificar si hay ronda EN_PROGRESO del usuario actual
         await verificarRondaEnProgreso(nombreCompleto);
         // Cargar rondas disponibles
         await cargarRondas();
+        // Cargar QRs para funcionamiento offline
+        cachearQRsDelSitio();
+
       }
     } catch (e) {
       console.error('[Ronda] Error:', e);
     }
   });
+
+  // ===================== CACHEAR QRS (OFFLINE) =====================
+  async function cachearQRsDelSitio() {
+    if (!navigator.onLine) {
+      console.log('[Ronda] Offline: No se pueden actualizar QRs, usando cache existente.');
+      return;
+    }
+
+    try {
+      console.log('[Ronda] Descargando QRs para uso offline...');
+      const snapshot = await db.collection('QR_CODES').get();
+      const listaQRs = [];
+
+      snapshot.forEach(doc => {
+        const qr = doc.data();
+        if ((qr.cliente || '').toUpperCase() === userCtx.cliente &&
+          (qr.unidad || '').toUpperCase() === userCtx.unidad) {
+          listaQRs.push(qr);
+        }
+      });
+
+      if (listaQRs.length > 0) {
+        await RONDA_STORAGE.guardarQRsEnCache(listaQRs);
+        console.log(`[Ronda] ✓ Se cachearon ${listaQRs.length} QRs válidos.`);
+      }
+    } catch (e) {
+      console.warn('[Ronda] Error cacheando QRs:', e);
+    }
+  }
 
   // ===================== VERIFICAR RONDA EN PROGRESO =====================
   async function verificarRondaEnProgreso(userId) {
@@ -164,31 +233,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       const query = db.collection('RONDAS_COMPLETADAS')
         .where('estado', '==', 'EN_PROGRESO')
         .where('usuario', '==', userId);
-      
+
       const snapshot = await query.get();
-      
+
       if (!snapshot.empty) {
         const doc = snapshot.docs[0];
         rondaEnProgreso = { ...doc.data() };
         rondaIdActual = doc.id; // El ID debe ser igual al documento de Rondas_QR
-        
+
         console.log('[Ronda] Ronda recuperada:', rondaEnProgreso.nombre, 'ID:', rondaIdActual);
-        
+
         // Guardar en cache local para acceso rápido
         await RONDA_STORAGE.guardarEnCache(rondaIdActual, rondaEnProgreso);
-        
+
         // Verificar si ya pasó la tolerancia
         const ahoraMs = Date.now();
-        const inicioMs = rondaEnProgreso.horarioInicio.toMillis ? 
-          rondaEnProgreso.horarioInicio.toMillis() : 
+        const inicioMs = rondaEnProgreso.horarioInicio.toMillis ?
+          rondaEnProgreso.horarioInicio.toMillis() :
           new Date(rondaEnProgreso.horarioInicio).getTime();
         const elapsedMs = ahoraMs - inicioMs;
-        
-        const toleranciaMs = 
+
+        const toleranciaMs =
           rondaEnProgreso.toleranciaTipo === 'horas'
             ? rondaEnProgreso.tolerancia * 3600000
             : rondaEnProgreso.tolerancia * 60000;
-        
+
         if (elapsedMs > toleranciaMs) {
           console.log('[Ronda] Tolerancia expirada, terminando automáticamente...');
           await terminarRondaAuto();
@@ -220,7 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tx = db.transaction(RONDA_STORAGE.STORE_NAME, 'readonly');
         const store = tx.objectStore(RONDA_STORAGE.STORE_NAME);
         const request = store.getAll();
-        
+
         request.onsuccess = () => {
           const items = request.result;
           for (let item of items) {
@@ -279,12 +348,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ===================== CREAR CARD RONDA =====================
   function crearCardRonda(ronda) {
     const div = document.createElement('div');
-    
+
     // Validar si la ronda puede iniciarse
     const validacion = validarRonda(ronda);
     const puedeIniciar = validacion.activa;
     const motivo = validacion.motivo;
-    
+
     div.style.cssText = `
       background: ${puedeIniciar ? '#222' : '#3f3f3f'}; 
       border: 1px solid ${puedeIniciar ? '#333' : '#555'}; 
@@ -314,7 +383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (puedeIniciar) {
       div.querySelector('button').addEventListener('click', () => iniciarRonda(ronda));
     }
-    
+
     return div;
   }
 
@@ -322,7 +391,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function validarRonda(ronda) {
     const ahora = new Date();
     const horaActualMs = ahora.getHours() * 3600000 + ahora.getMinutes() * 60000;
-    
+
     let activa = false;
     let motivo = '';
 
@@ -347,7 +416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { activa: false, motivo };
       }
 
-      const toleranciaMs = 
+      const toleranciaMs =
         ronda.toleranciaTipo === 'horas'
           ? ronda.tolerancia * 3600000
           : ronda.tolerancia * 60000;
@@ -379,17 +448,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const año = ahora.getFullYear();
     const mes = String(ahora.getMonth() + 1).padStart(2, '0');
     const día = String(ahora.getDate()).padStart(2, '0');
-    
+
     // Extraer HH:MM del horario configurado (ej: "23:29" → "2329")
     const [horaStr, minStr] = (horarioRonda || '00:00').split(':');
     const horarioFormato = `${String(horaStr).padStart(2, '0')}${String(minStr).padStart(2, '0')}`;
-    
+
     return `${rondaId}_${año}_${mes}_${día}_${horarioFormato}`;
   }
 
   async function iniciarRonda(ronda) {
     const overlay = mostrarOverlay('Iniciando ronda...');
-    
+
     try {
       // ⚠️ ID del documento = ID de la ronda + fecha + horario configurado (evita sobrescrituras)
       const docId = generarIdRondaConTimestamp(ronda.id, ronda.horario); // Ej: ronda_1763785728711_2025-11-24_2329
@@ -447,7 +516,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Guardar en RONDAS_COMPLETADAS con ID = ronda.id (sin duplicados)
       await db.collection('RONDAS_COMPLETADAS').doc(docId).set(rondaEnProgreso);
-      
+
       // Guardar en cache local para acceso offline
       await RONDA_STORAGE.guardarEnCache(docId, rondaEnProgreso);
 
@@ -494,12 +563,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const puntosDiv = document.createElement('div');
     puntosDiv.id = 'puntos-container';
-    
+
     Object.entries(rondaEnProgreso.puntosRegistrados).forEach(([idx, punto]) => {
       const qrEscaneado = punto.qrEscaneado;
       const tieneRespuestas = punto.respuestas && Object.keys(punto.respuestas).length > 0;
       const tieneFoto = punto.foto !== null && punto.foto !== undefined;
-      
+
       const card = document.createElement('div');
       card.style.cssText = `
         background: ${qrEscaneado ? '#065f46' : '#222'}; 
@@ -600,7 +669,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (codeReaderInstance) {
         try {
           codeReaderInstance.reset();
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const codeReader = new ZXing.BrowserMultiFormatReader();
@@ -634,7 +703,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const esValido = codigoQR.trim() === punto.qrId.trim();
-      
+
       if (!esValido) {
         console.error('[QR] RECHAZO - No coincide');
         mostrarErrorQR(indice, punto, modal);
@@ -722,7 +791,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (codeReaderInstance) {
       try {
         codeReaderInstance.reset();
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -776,10 +845,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const questionDiv = document.createElement('div');
         questionDiv.style.cssText = `margin-bottom: 20px;`;
-        
+
         const label = document.createElement('label');
         label.style.cssText = `display: block; margin-bottom: 8px; color: #fff; font-weight: 500; font-size: 0.95em;`;
-        
+
         // Extraer el texto de la pregunta de diferentes posibles campos
         let textoPreg = '';
         if (typeof pregunta === 'string') {
@@ -791,7 +860,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           textoPreg = JSON.stringify(pregunta).substring(0, 50);
         }
-        
+
         label.textContent = textoPreg || `Pregunta ${qKey}`;
         questionDiv.appendChild(label);
 
@@ -815,7 +884,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Sección de Foto
     const fotoDiv = document.createElement('div');
     fotoDiv.style.cssText = `margin-top: 25px; padding-top: 20px; border-top: 1px solid #444;`;
-    
+
     const fotoLabel = document.createElement('label');
     fotoLabel.style.cssText = `display: block; margin-bottom: 12px; color: #fff; font-weight: 500; font-size: 0.95em;`;
     fotoLabel.textContent = '📷 Tomar Foto (Opcional)';
@@ -827,7 +896,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       padding: 12px; margin-bottom: 12px; min-height: 200px; display: flex;
       align-items: center; justify-content: center;
     `;
-    
+
     const video = document.createElement('video');
     video.id = 'foto-video';
     video.style.cssText = `width: 100%; border-radius: 4px; display: none; max-height: 250px; object-fit: cover;`;
@@ -931,8 +1000,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ===================== ABRIR CÁMARA PARA FOTO =====================
   async function abrirCamaraFoto(video, placeholder) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
       });
       video.srcObject = stream;
       video.style.display = 'block';
@@ -955,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const ctx = canvas.getContext('2d');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
+
       // Dibujar el video en el canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -1049,8 +1118,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const ahora = Date.now();
       // Solo actualizar pantalla cada 500ms (en lugar de cada 1000ms)
       if (ahora - lastUpdateTime >= 500) {
-        const inicioMs = rondaEnProgreso.horarioInicio.toMillis ? 
-          rondaEnProgreso.horarioInicio.toMillis() : 
+        const inicioMs = rondaEnProgreso.horarioInicio.toMillis ?
+          rondaEnProgreso.horarioInicio.toMillis() :
           new Date(rondaEnProgreso.horarioInicio).getTime();
         const elapsedMs = ahora - inicioMs;
 
@@ -1075,7 +1144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function verificarTolerancia(elapsedMs) {
     if (!rondaEnProgreso) return;
 
-    const toleranciaMs = 
+    const toleranciaMs =
       rondaEnProgreso.toleranciaTipo === 'horas'
         ? rondaEnProgreso.tolerancia * 3600000
         : rondaEnProgreso.tolerancia * 60000;
@@ -1088,11 +1157,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ===================== CALCULAR HORARIO TÉRMINO =====================
   function calcularHorarioTermino() {
-    const inicioMs = rondaEnProgreso.horarioInicio.toMillis ? 
-      rondaEnProgreso.horarioInicio.toMillis() : 
+    const inicioMs = rondaEnProgreso.horarioInicio.toMillis ?
+      rondaEnProgreso.horarioInicio.toMillis() :
       new Date(rondaEnProgreso.horarioInicio).getTime();
-    
-    const toleranciaMs = 
+
+    const toleranciaMs =
       rondaEnProgreso.toleranciaTipo === 'horas'
         ? rondaEnProgreso.tolerancia * 3600000
         : rondaEnProgreso.tolerancia * 60000;
@@ -1329,7 +1398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (codeReaderInstance) {
         try {
           codeReaderInstance.reset();
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const codeReader = new ZXing.BrowserMultiFormatReader();
@@ -1365,13 +1434,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       snapshot.forEach(doc => {
         const qr = doc.data();
-        
+
         // Validar que el QR perteneza al cliente y unidad del usuario
         if ((qr.cliente || '').toUpperCase() !== userCtx.cliente ||
-            (qr.unidad || '').toUpperCase() !== userCtx.unidad) {
+          (qr.unidad || '').toUpperCase() !== userCtx.unidad) {
           return; // Saltar QRs que no pertenecen al usuario
         }
-        
+
         // Comparar el ID del QR
         if (qr.id && qr.id.trim() === codigoQR.trim()) {
           qrEncontrado = qr;
@@ -1505,10 +1574,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const questionDiv = document.createElement('div');
         questionDiv.style.cssText = `margin-bottom: 20px;`;
-        
+
         const label = document.createElement('label');
         label.style.cssText = `display: block; margin-bottom: 8px; color: #fff; font-weight: 500; font-size: 0.95em;`;
-        
+
         let textoPreg = '';
         if (typeof pregunta === 'string') {
           textoPreg = pregunta;
@@ -1519,7 +1588,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           textoPreg = JSON.stringify(pregunta).substring(0, 50);
         }
-        
+
         label.textContent = textoPreg || `Pregunta ${qKey}`;
         questionDiv.appendChild(label);
 
@@ -1543,7 +1612,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Sección de Foto
     const fotoDiv = document.createElement('div');
     fotoDiv.style.cssText = `margin-top: 25px; padding-top: 20px; border-top: 1px solid #444;`;
-    
+
     const fotoLabel = document.createElement('label');
     fotoLabel.style.cssText = `display: block; margin-bottom: 12px; color: #fff; font-weight: 500; font-size: 0.95em;`;
     fotoLabel.textContent = '📷 Tomar Foto (Opcional)';
@@ -1555,7 +1624,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       padding: 12px; margin-bottom: 12px; min-height: 200px; display: flex;
       align-items: center; justify-content: center;
     `;
-    
+
     const video = document.createElement('video');
     video.id = 'foto-video-manual';
     video.style.cssText = `width: 100%; border-radius: 4px; display: none; max-height: 250px; object-fit: cover;`;
@@ -1677,7 +1746,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const nombres = (datos.NOMBRES || '').trim();
           const apellidos = (datos.APELLIDOS || '').trim();
           nombreCompleto = `${nombres} ${apellidos}`.trim();
-          
+
           console.log('[Ronda Manual] Nombre encontrado:', nombreCompleto);
         }
       } catch (e) {

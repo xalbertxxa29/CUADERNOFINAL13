@@ -229,6 +229,49 @@
     setTimeout(() => alertOkBtn.focus(), 0); // accesibilidad
   };
 
+  // ---------------------------
+  // Toast Notification (Aesthetic, non-blocking)
+  // ---------------------------
+  let toastEl = null;
+
+  function ensureToast() {
+    if (toastEl) return;
+    toastEl = document.createElement('div');
+    toastEl.id = 'app-toast';
+    Object.assign(toastEl.style, {
+      position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+      zIndex: '10100', display: 'none',
+      background: 'rgba(16, 185, 129, 0.95)', color: 'white',
+      padding: '12px 24px', borderRadius: '50px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+      fontSize: '0.95rem', fontWeight: '500', textAlign: 'center',
+      backdropFilter: 'blur(4px)', whiteSpace: 'nowrap',
+      transition: 'opacity 0.3s, transform 0.3s'
+    });
+    document.body.appendChild(toastEl);
+  }
+
+  UI.toast = function (message, duration = 3000) {
+    ensureToast();
+    toastEl.textContent = message;
+    toastEl.style.display = 'block';
+    toastEl.style.opacity = '0';
+    toastEl.style.transform = 'translate(-50%, 20px)';
+
+    // Animate in
+    requestAnimationFrame(() => {
+      toastEl.style.opacity = '1';
+      toastEl.style.transform = 'translate(-50%, 0)';
+    });
+
+    if (toastEl._timer) clearTimeout(toastEl._timer);
+    toastEl._timer = setTimeout(() => {
+      toastEl.style.opacity = '0';
+      toastEl.style.transform = 'translate(-50%, 20px)';
+      setTimeout(() => { toastEl.style.display = 'none'; }, 300);
+    }, duration);
+  };
+
   // ------------------------------------------------
   // Dropdown buscable (cliente/unidad/puesto)
   // ------------------------------------------------

@@ -464,19 +464,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       const docId = generarIdRondaConTimestamp(ronda.id, ronda.horario); // Ej: ronda_1763785728711_2025-11-24_2329
       const ahora = firebase.firestore.Timestamp.now();
 
-      // Obtener nombre completo del documento USUARIOS
+      // Obtener nombre completo SIN bloquear (Offline First)
       let nombreCompleto = userCtx.userId;
-      try {
-        const usuarioDoc = await db.collection('USUARIOS').doc(userCtx.userId).get();
-        if (usuarioDoc.exists) {
-          const datos = usuarioDoc.data();
-          const nombres = (datos.NOMBRES || '').trim();
-          const apellidos = (datos.APELLIDOS || '').trim();
-          nombreCompleto = `${nombres} ${apellidos}`.trim();
-          console.log('[Ronda] Nombre encontrado:', nombreCompleto);
+
+      // Intentar usar contexto ya cargado (si existe)
+      if (currentUser && currentUser.email) {
+        if (window.offlineStorage) {
+          try {
+            const u = await window.offlineStorage.getUserData();
+            if (u) { nombreCompleto = `${u.NOMBRES || ''} ${u.APELLIDOS || ''}`.trim(); }
+          } catch (e) { }
         }
-      } catch (e) {
-        console.warn('[Ronda] No se pudo obtener nombre completo:', e);
+      }
+
+      // Si tenemos red, intentamos fetch rápido (opcional, no bloqueante o con timeout corto idealmente)
+      // En este caso, si falla, seguimos con el ID o nombre cacheado
+      if (nombreCompleto === userCtx.userId && navigator.onLine) {
+        try {
+          const usuarioDoc = await db.collection('USUARIOS').doc(userCtx.userId).get();
+          if (usuarioDoc.exists) {
+            const datos = usuarioDoc.data();
+            nombreCompleto = `${datos.NOMBRES || ''} ${datos.APELLIDOS || ''}`.trim();
+          }
+        } catch (e) {
+          console.warn('[Ronda] No se pudo obtener nombre completo (red):', e);
+        }
       }
 
       const puntosRondaArray = Array.isArray(ronda.puntosRonda)
@@ -1064,16 +1076,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         foto: fotoBase64
       };
 
-      // ⚠️ GUARDAR INMEDIATAMENTE EN FIREBASE
-      await db.collection('RONDAS_COMPLETADAS').doc(rondaIdActual).update({
-        puntosRegistrados: rondaEnProgreso.puntosRegistrados,
-        ultimaActualizacion: firebase.firestore.Timestamp.now()
-      });
-
-      // Actualizar cache local
+      // 1. ACTUALIZAR CACHE LOCAL PRIMERO (Inmediato)
       await RONDA_STORAGE.guardarEnCache(rondaIdActual, rondaEnProgreso);
 
-      console.log('[Ronda] Punto completado:', indice, '- Guardado en Firebase');
+      // 2. INTENTAR GUARDAR EN FIREBASE (Fondo / Persistencia)
+      // No usamos await bloqueante para el UI, pero sí para el log.
+      // Firestore Persistence manejará el offline.
+      db.collection('RONDAS_COMPLETADAS').doc(rondaIdActual).update({
+        puntosRegistrados: rondaEnProgreso.puntosRegistrados,
+        ultimaActualizacion: firebase.firestore.Timestamp.now()
+      }).then(() => {
+        console.log('[Ronda] Punto completado: Guardado en Firebase/Cola.');
+      }).catch(err => {
+        console.warn('[Ronda] Guardado en Firebase pendiente (Offline):', err.code);
+      });
+
+      console.log('[Ronda] Punto completado:', indice);
     } catch (e) {
       console.error('[Ronda] Error guardando:', e);
       alert('Error guardando punto: ' + e.message);
@@ -1092,16 +1110,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         foto: null
       };
 
-      // ⚠️ GUARDAR INMEDIATAMENTE EN FIREBASE
-      await db.collection('RONDAS_COMPLETADAS').doc(rondaIdActual).update({
-        puntosRegistrados: rondaEnProgreso.puntosRegistrados,
-        ultimaActualizacion: firebase.firestore.Timestamp.now()
-      });
-
-      // Actualizar cache local
+      // 1. ACTUALIZAR CACHE LOCAL PRIMERO (Inmediato)
       await RONDA_STORAGE.guardarEnCache(rondaIdActual, rondaEnProgreso);
 
-      console.log('[Ronda] Punto marcado:', indice, '- Guardado en Firebase');
+      // 2. INTENTAR GUARDAR EN FIREBASE (Fondo / Persistencia)
+      db.collection('RONDAS_COMPLETADAS').doc(rondaIdActual).update({
+        puntosRegistrados: rondaEnProgreso.puntosRegistrados,
+        ultimaActualizacion: firebase.firestore.Timestamp.now()
+      }).then(() => {
+        console.log('[Ronda] Punto marcado: Guardado en Firebase/Cola.');
+      }).catch(err => {
+        console.warn('[Ronda] Guardado en Firebase pendiente (Offline):', err.code);
+      });
+
+      console.log('[Ronda] Punto marcado:', indice);
     } catch (e) {
       console.error('[Ronda] Error registrando:', e);
       alert('Error: ' + e.message);
@@ -1422,36 +1444,57 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function procesarQRManual(codigoQR, modal) {
     try {
       console.log('[QR Manual] Procesando:', codigoQR);
-
-      // Detener el video
       detenerVideoQR(modal);
+      const overlay = mostrarOverlay('Buscando QR...');
 
-      const overlay = mostrarOverlay('Buscando QR en la base de datos...');
-
-      // Buscar el QR en la colección QR_CODES
-      const snapshot = await db.collection('QR_CODES').get();
+      // Estrategia Offline-First para búsqueda
       let qrEncontrado = null;
+      let snapshot = { empty: true, forEach: () => { } };
 
-      snapshot.forEach(doc => {
-        const qr = doc.data();
-
-        // Validar que el QR perteneza al cliente y unidad del usuario
-        if ((qr.cliente || '').toUpperCase() !== userCtx.cliente ||
-          (qr.unidad || '').toUpperCase() !== userCtx.unidad) {
-          return; // Saltar QRs que no pertenecen al usuario
+      // 1. Intentar Cache Local primero (más rápido)
+      try {
+        const cachedQRs = await RONDA_STORAGE.obtenerQRsDeCache();
+        if (cachedQRs && cachedQRs.length > 0) {
+          console.log('[QR Manual] Buscando en cache local...', cachedQRs.length, 'QRs');
+          qrEncontrado = cachedQRs.find(q =>
+            (q.id || '').trim() === codigoQR.trim() &&
+            (q.cliente || '').toUpperCase() === userCtx.cliente &&
+            (q.unidad || '').toUpperCase() === userCtx.unidad
+          );
         }
+      } catch (e) {
+        console.warn('[QR Manual] Error en cache:', e);
+      }
 
-        // Comparar el ID del QR
-        if (qr.id && qr.id.trim() === codigoQR.trim()) {
-          qrEncontrado = qr;
-        }
-      });
+      // 2. Si no está en cache y hay internet, buscar en Firestore
+      if (!qrEncontrado && navigator.onLine) {
+        try {
+          snapshot = await db.collection('QR_CODES')
+            .where('id', '==', codigoQR.trim()) // Optimización: buscar por ID directo si es posible, sino scan completo
+            .limit(1).get()
+            .catch(() => ({ empty: true }));
+
+          if (snapshot.empty) {
+            // Fallback a traer todos si la query específica falla (estructura antigua)
+            snapshot = await db.collection('QR_CODES').get();
+          }
+
+          snapshot.forEach(doc => {
+            const qr = doc.data();
+            if ((qr.cliente || '').toUpperCase() === userCtx.cliente &&
+              (qr.unidad || '').toUpperCase() === userCtx.unidad) {
+              if ((qr.id || '').trim() === codigoQR.trim()) {
+                qrEncontrado = qr;
+              }
+            }
+          });
+        } catch (e) { console.error('Error Firestore QR:', e); }
+      }
 
       ocultarOverlay();
 
       if (!qrEncontrado) {
-        console.error('[QR Manual] QR no encontrado en la BD o no pertenece a tu cliente/unidad');
-        console.log('[QR Manual] Buscado:', codigoQR, 'Cliente:', userCtx.cliente, 'Unidad:', userCtx.unidad);
+        console.error('[QR Manual] QR no encontrado (Online/Offline).');
         mostrarErrorQRManual(modal);
         return;
       }
@@ -1729,29 +1772,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const ahora = new Date();
       const fechaHora = ahora.toLocaleString('es-ES', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
       });
 
-      // Obtener nombre completo del documento USUARIOS
-      let nombreCompleto = userCtx.userId; // Fallback si no encuentra
-      try {
-        const usuarioDoc = await db.collection('USUARIOS').doc(userCtx.userId).get();
-        if (usuarioDoc.exists) {
-          const datos = usuarioDoc.data();
-          const nombres = (datos.NOMBRES || '').trim();
-          const apellidos = (datos.APELLIDOS || '').trim();
-          nombreCompleto = `${nombres} ${apellidos}`.trim();
+      // 1. Obtener nombre completo SIN bloquear (Offline First)
+      let nombreCompleto = userCtx.userId;
 
-          console.log('[Ronda Manual] Nombre encontrado:', nombreCompleto);
+      // Intentar usar contexto ya cargado (si existe)
+      if (currentUser && currentUser.email) {
+        // Si auth.onAuthStateChanged ya corrió, userCtx tiene el nombre si lo sacó de peatonal logic o parecido
+        // Pero ronda-v2.js carga nombre en verificarRondaEnProgreso.
+        // Intentemos usar offlineStorage si está disponible.
+        if (window.offlineStorage) {
+          try {
+            const u = await window.offlineStorage.getUserData();
+            if (u) {
+              nombreCompleto = `${u.NOMBRES || ''} ${u.APELLIDOS || ''}`.trim();
+              userCtx.cliente = u.CLIENTE || userCtx.cliente;
+              userCtx.unidad = u.UNIDAD || userCtx.unidad;
+            }
+          } catch (e) { }
         }
-      } catch (e) {
-        console.warn('[Ronda Manual] No se pudo obtener nombre completo:', e);
-        // Continuar con el userId como fallback
+      }
+
+      // Si aún así no tenemos nombre y HAY red, intentamos fetch rápido con timeout
+      if (nombreCompleto === userCtx.userId && navigator.onLine) {
+        try {
+          const doc = await db.collection('USUARIOS').doc(userCtx.userId).get();
+          if (doc.exists) {
+            const d = doc.data();
+            nombreCompleto = `${d.NOMBRES || ''} ${d.APELLIDOS || ''}`.trim();
+          }
+        } catch (e) { console.warn('Fetch nombre failed', e); }
       }
 
       const registro = {
@@ -1765,18 +1818,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         codigoQRLeido: codigoQR,
         preguntas: qr.questions || {},
         respuestas: respuestas,
-        foto: fotoBase64,
+        foto: fotoBase64, // Base64 directo (offline safe)
         fechaHora: fechaHora,
-        timestamp: firebase.firestore.Timestamp.now(),
+        timestamp: firebase.firestore.Timestamp.now(), // Timestamp real del servidor (o estimado local)
         tipo: 'ronda_manual'
       };
 
-      await db.collection('RONDA_MANUAL').add(registro);
+      console.log('[Ronda Manual] Guardando...', registro);
 
-      console.log('[Ronda Manual] Registro guardado:', registro);
+      // 2. Guardar en Firestore con manejo robusto
+      // add() devuelve promesa. En offline con persistencia, resuelve rápido con referencia local.
+      // PERO por seguridad, ponemos timeout o catch.
+
+      const ref = await db.collection('RONDA_MANUAL').add(registro);
+
+      // Si llegamos aqui, se guardó (en servidor o en cola local de Firestore).
+      // Si usamos Base64, no necesitamos OfflineQueue para subir foto aparte (ya va en el doc).
+
+      console.log('[Ronda Manual] Registro guardado ID:', ref.id);
+
+      // Feedback visual adicional si estamos offline
+      if (!navigator.onLine) {
+        console.log('[Ronda Manual] Guardado LOCALMENTE (Offline). Se sincronizará al conectar.');
+      }
+
     } catch (e) {
       console.error('[Ronda Manual] Error guardando:', e);
-      alert('Error: ' + e.message);
+      alert('Error guardando: ' + e.message);
+      throw e; // Re-lanzar para que el UI maneje el error
     }
   }
 

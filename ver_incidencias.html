@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ver Incidencias</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css?v=69">
+    <link rel="stylesheet" href="webview.css?v=69">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="list-page-container page">
+        <header class="list-page-header">
+            <h1 class="page-title">Historial de Incidencias</h1>
+            <a href="menu.html" class="btn-back"><i class="fas fa-arrow-left"></i><span>Menú</span></a>
+        </header>
+
+        <div class="filters-container">
+            <input type="date" id="fecha-filtro" class="input-group">
+            <button id="buscar-btn" class="btn-primary">Buscar</button>
+            <button id="limpiar-btn" class="btn-secondary">Limpiar</button>
+        </div>
+
+        <div id="incidencias-container" class="scrollable"></div>
+
+        <div class="pagination-controls">
+            <button id="prev-btn" class="btn-secondary" disabled>Anterior</button>
+            <button id="next-btn" class="btn-secondary" disabled>Siguiente</button>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
+    <!-- App -->
+    <script src="firebase-config.js?v=69"></script>
+    <script src="initFirebase.js?v=69"></script>
+    <script src="ui.js?v=69"></script>
+    <script src="ver_incidencias.js?v=69"></script>
+    <script src="webview.js?v=69"></script>
+    <script src="sync.js?v=69"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
+    </script>
+
+    <!-- Lightbox -->
+    <div id="imageLightbox" class="lightbox" hidden>
+        <div class="lightbox-backdrop"></div>
+        <div class="lightbox-content">
+            <button class="lightbox-close" aria-label="Cerrar">&times;</button>
+            <img id="lightboxImg" alt="Foto de incidencia">
+        </div>
+    </div>
+</body>
+
+</html>

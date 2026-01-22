@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Menú Principal</title>
 
   <!-- PWA / Estilos -->
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=69"/>
-  <link rel="stylesheet" href="webview.css?v=69"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"/>
+  <link rel="stylesheet" href="style.css?v=69" />
+  <link rel="stylesheet" href="webview.css?v=69" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
 </head>
+
 <body>
   <div class="menu-wrapper page">
     <div class="menu-card-improved">
       <div class="menu-header">
-        <img src="imagenes/logo1.png" alt="Liderman Logo" class="menu-logo"/>
+        <img src="imagenes/logo1.png" alt="Liderman Logo" class="menu-logo" />
         <h1 id="welcome-title">Bienvenido</h1>
         <p id="user-details">Cargando...</p>
         <p id="user-client-unit" class="user-client-unit"></p>
@@ -76,12 +78,42 @@
   <div id="ver-info-modal-overlay" class="modal-overlay" style="display:none;">
     <div class="modal-box" style="max-width:480px;text-align:center;">
       <h3 style="margin-top:0;">Ver Información</h3>
-      <p style="font-size:.95rem;color:#888;margin-bottom:1.5rem;">Seleccione el tipo de información que desea consultar.</p>
+      <p style="font-size:.95rem;color:#888;margin-bottom:1.5rem;">Seleccione el tipo de información que desea
+        consultar.</p>
       <div class="menu-options" style="margin-bottom:1rem;">
-        <a href="ver_consignas.html" class="menu-button-improved"><i class="fas fa-list-alt"></i><span>Ver Consignas</span></a>
-        <a href="registros.html" class="menu-button-improved"><i class="fas fa-calendar-alt"></i><span>Ver Registros</span></a>
+        <a href="ver_consignas.html" class="menu-button-improved"><i class="fas fa-list-alt"></i><span>Ver
+            Consignas</span></a>
+        <a href="registros.html" class="menu-button-improved"><i class="fas fa-calendar-alt"></i><span>Ver Inf.
+            Cuaderno</span></a>
+        <a href="ver_incidencias.html" class="menu-button-improved"><i class="fas fa-exclamation-circle"></i><span>Ver
+            Incidencias</span></a>
+        <a href="ver_peatonal.html" class="menu-button-improved"><i class="fas fa-walking"></i><span>Ver
+            Peatonal</span></a>
+        <a href="ver_vehicular.html" class="menu-button-improved"><i class="fas fa-car"></i><span>Ver
+            Vehicular</span></a>
+        <a href="#" id="btn-ver-rondas" class="menu-button-improved"><i class="fas fa-clipboard-check"></i><span>Ver
+            Rondas realizadas</span></a>
       </div>
-      <button type="button" id="ver-info-cancel-btn" class="btn-secondary" style="width:auto;padding:.75rem 2rem;">Cerrar</button>
+      <button type="button" id="ver-info-cancel-btn" class="btn-secondary"
+        style="width:auto;padding:.75rem 2rem;">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Ver Rondas (Selección) -->
+  <div id="ver-rondas-modal-overlay" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:480px;text-align:center;">
+      <h3 style="margin-top:0;">Ver Rondas</h3>
+      <p style="font-size:.95rem;color:#888;margin-bottom:1.5rem;">Seleccione el tipo de ronda a visualizar</p>
+      <div class="menu-options" style="margin-bottom:1rem;">
+        <a href="ver_rondas_manuales.html" class="menu-button-improved">
+          <i class="fas fa-qrcode"></i><span>Ver Rondas Manuales</span>
+        </a>
+        <a href="ver_rondas_programadas.html" class="menu-button-improved">
+          <i class="fas fa-calendar-check"></i><span>Ver Rondas Programadas</span>
+        </a>
+      </div>
+      <button type="button" id="ver-rondas-cancel-btn" class="btn-secondary"
+        style="width:auto;padding:.75rem 2rem;">Volver</button>
     </div>
   </div>
 
@@ -94,12 +126,12 @@
 
         <div class="input-group">
           <label for="relevo-id">ID de Usuario (Entrante)</label>
-          <input type="text" id="relevo-id" required autocomplete="off"/>
+          <input type="text" id="relevo-id" required autocomplete="off" />
         </div>
 
         <div class="input-group">
           <label for="relevo-password">Contraseña (Entrante)</label>
-          <input type="password" id="relevo-password" required/>
+          <input type="password" id="relevo-password" required />
         </div>
 
         <div class="input-group">
@@ -110,8 +142,10 @@
         <div class="input-group">
           <label for="relevo-firma-canvas">Firma de Conformidad</label>
           <!-- Dimensiones explícitas para evitar canvas 0px -->
-          <canvas id="relevo-firma-canvas" style="width:100%;height:140px;border:1px dashed #d0d4e4;border-radius:10px;background:#fff;"></canvas>
-          <button type="button" id="relevo-clear-firma" class="btn-secondary" style="width:auto;padding:6px 10px;font-size:.8rem;margin-top:.5rem;">Limpiar</button>
+          <canvas id="relevo-firma-canvas"
+            style="width:100%;height:140px;border:1px dashed #d0d4e4;border-radius:10px;background:#fff;"></canvas>
+          <button type="button" id="relevo-clear-firma" class="btn-secondary"
+            style="width:auto;padding:6px 10px;font-size:.8rem;margin-top:.5rem;">Limpiar</button>
         </div>
 
         <div class="button-group">
@@ -132,24 +166,24 @@
       <form id="crear-usuario-form" class="grid" style="gap:.75rem;margin-top:.75rem;">
         <div class="input-group">
           <label for="cu-id">ID de Usuario</label>
-          <input id="cu-id" type="text" required autocomplete="off"/>
+          <input id="cu-id" type="text" required autocomplete="off" />
         </div>
 
         <div class="input-group">
           <label for="cu-nombres">Nombres</label>
-          <input id="cu-nombres" type="text" required/>
+          <input id="cu-nombres" type="text" required />
         </div>
 
         <div class="input-group">
           <label for="cu-apellidos">Apellidos</label>
-          <input id="cu-apellidos" type="text" required/>
+          <input id="cu-apellidos" type="text" required />
         </div>
 
         <div class="input-group">
           <label for="cu-cliente-input">Cliente</label>
           <div class="input-with-button">
             <div class="searchable-dropdown">
-              <input type="text" id="cu-cliente-input" placeholder="Buscar..." autocomplete="off" required/>
+              <input type="text" id="cu-cliente-input" placeholder="Buscar..." autocomplete="off" required />
               <div class="dropdown-content" id="cu-cliente-list"></div>
             </div>
             <button type="button" id="cu-add-cliente-btn" class="btn-add" title="Añadir">
@@ -162,7 +196,8 @@
           <label for="cu-unidad-input">Unidad</label>
           <div class="input-with-button">
             <div class="searchable-dropdown">
-              <input type="text" id="cu-unidad-input" placeholder="Selecciona cliente..." autocomplete="off" required disabled/>
+              <input type="text" id="cu-unidad-input" placeholder="Selecciona cliente..." autocomplete="off" required
+                disabled />
               <div class="dropdown-content" id="cu-unidad-list"></div>
             </div>
             <button type="button" id="cu-add-unidad-btn" class="btn-add" title="Añadir">
@@ -175,7 +210,8 @@
           <label for="cu-puesto-input">Puesto</label>
           <div class="input-with-button">
             <div class="searchable-dropdown">
-              <input type="text" id="cu-puesto-input" placeholder="Selecciona unidad..." autocomplete="off" required disabled>
+              <input type="text" id="cu-puesto-input" placeholder="Selecciona unidad..." autocomplete="off" required
+                disabled>
               <div class="dropdown-content" id="cu-puesto-list"></div>
             </div>
             <button type="button" id="cu-add-puesto-btn" class="btn-add" title="Añadir">
@@ -186,12 +222,12 @@
 
         <div class="input-group">
           <label for="cu-pass">Contraseña</label>
-          <input id="cu-pass" type="password" required minlength="6"/>
+          <input id="cu-pass" type="password" required minlength="6" />
         </div>
 
         <div class="input-group">
           <label for="cu-pass2">Repetir Contraseña</label>
-          <input id="cu-pass2" type="password" required minlength="6"/>
+          <input id="cu-pass2" type="password" required minlength="6" />
         </div>
 
         <div class="button-group" style="justify-content:flex-end;">
@@ -241,4 +277,5 @@
     }
   </script>
 </body>
+
 </html>

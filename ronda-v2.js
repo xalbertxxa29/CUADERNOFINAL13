@@ -1832,46 +1832,87 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       console.log('[Ronda Manual] Guardando...', registro);
 
-      // 2. Guardar en Firestore con manejo robusto
-      // add() devuelve promesa. En offline con persistencia, resuelve rápido con referencia local.
-      // PERO por seguridad, ponemos timeout o catch.
+      // 2. Lógica Híbrida: Offline Queue vs Firestore Directo
 
-      const ref = await db.collection('RONDA_MANUAL').add(registro);
-
-      // Si llegamos aqui, se guardó (en servidor o en cola local de Firestore).
-      // Si usamos Base64, no necesitamos OfflineQueue para subir foto aparte (ya va en el doc).
-
-      console.log('[Ronda Manual] Registro guardado ID:', ref.id);
-
-      // Feedback visual adicional si estamos offline
       if (!navigator.onLine) {
-        console.log('[Ronda Manual] Guardado LOCALMENTE (Offline). Se sincronizará al conectar.');
+        // MODO OFFLINE: Guardar en cola IndexedDB explícita
+        if (window.OfflineQueue) {
+          await window.OfflineQueue.add({
+            kind: 'ronda-manual-full',
+            cliente: userCtx.cliente,
+            unidad: userCtx.unidad,
+            data: registro,
+            createdAt: Date.now()
+          });
+          if (typeof UI !== 'undefined' && UI.toast) {
+            UI.toast('Guardado offline. Se enviará al conectar.');
+          } else {
+            console.log('[Ronda Manual] Offline: Guardado en cola.');
+          }
+        } else {
+          throw new Error('No hay conexión y la cola offline no está disponible.');
+        }
+      } else {
+        // MODO ONLINE: Intentar guardar directo
+        // Si falla (ej: timeout), caer a la cola si es posible
+        try {
+          // Timeout de 4s
+          const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout')), 4000));
+          const addPromise = db.collection('RONDA_MANUAL').add(registro);
+
+          const ref = await Promise.race([addPromise, timeoutPromise]);
+          console.log('[Ronda Manual] Registro guardado ID:', ref.id);
+        } catch (err) {
+          console.warn('[Ronda Manual] Falló guardado online o timeout:', err);
+          console.log('[Ronda Manual] Reintentando en cola offline...');
+          if (window.OfflineQueue) {
+            await window.OfflineQueue.add({
+              kind: 'ronda-manual-full',
+              cliente: userCtx.cliente,
+              unidad: userCtx.unidad,
+              data: registro,
+              createdAt: Date.now()
+            });
+            if (typeof UI !== 'undefined' && UI.toast) {
+              UI.toast('Guardado offline (red inestable).');
+            }
+          } else {
+            throw err; // Si no hay cola, error fatal
+          }
+        }
       }
 
     } catch (e) {
       console.error('[Ronda Manual] Error guardando:', e);
-      alert('Error guardando: ' + e.message);
-      throw e; // Re-lanzar para que el UI maneje el error
+      // No alertar aqui para no bloquear, el caller limpiara overlay
+      throw e;
     }
   }
 
-  // ===================== MOSTRAR RESUMEN RONDA MANUAL =====================
-  function mostrarResumenRondaManual(punto) {
-    const modal = document.createElement('div');
-    modal.style.cssText = `
+} catch (e) {
+  console.error('[Ronda Manual] Error guardando:', e);
+  alert('Error guardando: ' + e.message);
+  throw e; // Re-lanzar para que el UI maneje el error
+}
+  }
+
+// ===================== MOSTRAR RESUMEN RONDA MANUAL =====================
+function mostrarResumenRondaManual(punto) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.95); display: flex; align-items: center;
       justify-content: center; z-index: 1002;
     `;
 
-    const content = document.createElement('div');
-    content.style.cssText = `
+  const content = document.createElement('div');
+  content.style.cssText = `
       background: #1a1a1a; border: 2px solid #10b981; border-radius: 12px;
       padding: 40px; text-align: center; max-width: 350px;
       box-shadow: 0 10px 40px rgba(16, 185, 129, 0.3);
     `;
 
-    content.innerHTML = `
+  content.innerHTML = `
       <div style="font-size: 3em; margin-bottom: 20px;">✅</div>
       <h2 style="color: #10b981; margin: 0 0 15px 0; font-size: 1.3em;">Punto Registrado</h2>
       <p style="color: #ccc; margin: 0 0 20px 0; font-size: 0.95em;">
@@ -1889,117 +1930,117 @@ document.addEventListener('DOMContentLoaded', async () => {
       ">Volver al Menú</button>
     `;
 
-    modal.appendChild(content);
-    document.body.appendChild(modal);
+  modal.appendChild(content);
+  document.body.appendChild(modal);
 
-    content.querySelector('#continuar-ronda-manual').addEventListener('click', () => {
-      modal.remove();
-      abrirScannerRondaManual();
-    });
+  content.querySelector('#continuar-ronda-manual').addEventListener('click', () => {
+    modal.remove();
+    abrirScannerRondaManual();
+  });
 
-    content.querySelector('#terminar-ronda-manual').addEventListener('click', () => {
-      modal.remove();
-      rondaManualEnProgreso = false;
-      location.href = 'menu.html';
-    });
+  content.querySelector('#terminar-ronda-manual').addEventListener('click', () => {
+    modal.remove();
+    rondaManualEnProgreso = false;
+    location.href = 'menu.html';
+  });
+}
+
+// ===================== MANEJADORES DE EVENTOS DEL MODAL =====================
+const btnRondaProgramada = document.getElementById('btn-ronda-programada');
+const btnRondaManual = document.getElementById('btn-ronda-manual');
+const btnCerrarModal = document.getElementById('btn-cerrar-modal');
+
+if (btnRondaProgramada) {
+  btnRondaProgramada.addEventListener('click', () => {
+    cerrarModalTipoRonda();
+    tipoRondaSeleccionado = 'programada';
+    cargarRondas();
+  });
+}
+
+if (btnRondaManual) {
+  btnRondaManual.addEventListener('click', () => {
+    tipoRondaSeleccionado = 'manual';
+    iniciarRondaManual();
+  });
+}
+
+if (btnCerrarModal) {
+  btnCerrarModal.addEventListener('click', () => {
+    cerrarModalTipoRonda();
+    location.href = 'menu.html';
+  });
+}
+
+// ===================== SINCRONIZAR DATOS (CACHE) =====================
+async function sincronizarDatos() {
+  if (!navigator.onLine) {
+    alert('Necesitas internet para descargar los datos.');
+    return;
   }
 
-  // ===================== MANEJADORES DE EVENTOS DEL MODAL =====================
-  const btnRondaProgramada = document.getElementById('btn-ronda-programada');
-  const btnRondaManual = document.getElementById('btn-ronda-manual');
-  const btnCerrarModal = document.getElementById('btn-cerrar-modal');
+  const overlay = mostrarOverlay('Descargando datos para modo offline...');
+  try {
+    // 1. Descargar QRs del Cliente/Unidad
+    console.log('[Sync] Descargando QRs...');
+    const snapshot = await db.collection('QR_CODES').get();
+    const qrsParaCache = [];
 
-  if (btnRondaProgramada) {
-    btnRondaProgramada.addEventListener('click', () => {
-      cerrarModalTipoRonda();
-      tipoRondaSeleccionado = 'programada';
-      cargarRondas();
+    snapshot.forEach(doc => {
+      const d = doc.data();
+      if ((d.cliente || '').toUpperCase() === userCtx.cliente &&
+        (d.unidad || '').toUpperCase() === userCtx.unidad) {
+        qrsParaCache.push(d);
+      }
     });
-  }
 
-  if (btnRondaManual) {
-    btnRondaManual.addEventListener('click', () => {
-      tipoRondaSeleccionado = 'manual';
-      iniciarRondaManual();
-    });
-  }
+    // Guardar en RONDA_STORAGE (usando una key especial o extendiendo la clase)
+    // RONDA_STORAGE.guardarQRsEnCache no existe aun, vamos a usar guardarEnCache genérico o hackearlo.
+    // Mejor: actualizamos offline-storage.js o usamos RONDA_STORAGE si tiene metodo.
+    // Revisando RONDA_STORAGE... tiene 'obtenerQRsDeCache'. Necesita 'guardarQRsEnCache'.
 
-  if (btnCerrarModal) {
-    btnCerrarModal.addEventListener('click', () => {
-      cerrarModalTipoRonda();
-      location.href = 'menu.html';
-    });
-  }
-
-  // ===================== SINCRONIZAR DATOS (CACHE) =====================
-  async function sincronizarDatos() {
-    if (!navigator.onLine) {
-      alert('Necesitas internet para descargar los datos.');
-      return;
+    if (RONDA_STORAGE.guardarQRsEnCache) {
+      await RONDA_STORAGE.guardarQRsEnCache(qrsParaCache);
+    } else {
+      // Fallback si no existe el método (lo agregaremos a offline-storage.js o similar si es ahi donde vive)
+      // Asumimos que RONDA_STORAGE es la clase de ronda-sync.js? No, es de offline-storage.js?
+      // Ah, RONDA_STORAGE es una variable global instanciada donde?
+      // En ronda-v2.js no la veo instanciada, debe ser global.
+      // Voy a asumir que podemos llamar a un metodo nuevo que creare, o usarlo directo si es IDB.
+      // Por seguridad, agregare el metodo a RONDA_STORAGE en el siguiente paso si falla.
+      // PERO por ahora, intentemos usar lo que hay.
     }
 
-    const overlay = mostrarOverlay('Descargando datos para modo offline...');
-    try {
-      // 1. Descargar QRs del Cliente/Unidad
-      console.log('[Sync] Descargando QRs...');
-      const snapshot = await db.collection('QR_CODES').get();
-      const qrsParaCache = [];
-
-      snapshot.forEach(doc => {
-        const d = doc.data();
-        if ((d.cliente || '').toUpperCase() === userCtx.cliente &&
-          (d.unidad || '').toUpperCase() === userCtx.unidad) {
-          qrsParaCache.push(d);
+    // 2. Descargar Perfil Usuario
+    console.log('[Sync] Descargando Perfil...');
+    if (window.offlineStorage) {
+      try {
+        const doc = await db.collection('USUARIOS').doc(userCtx.userId).get();
+        if (doc.exists) {
+          await window.offlineStorage.guardarUserData({
+            id: userCtx.userId,
+            ...doc.data()
+          });
         }
-      });
-
-      // Guardar en RONDA_STORAGE (usando una key especial o extendiendo la clase)
-      // RONDA_STORAGE.guardarQRsEnCache no existe aun, vamos a usar guardarEnCache genérico o hackearlo.
-      // Mejor: actualizamos offline-storage.js o usamos RONDA_STORAGE si tiene metodo.
-      // Revisando RONDA_STORAGE... tiene 'obtenerQRsDeCache'. Necesita 'guardarQRsEnCache'.
-
-      if (RONDA_STORAGE.guardarQRsEnCache) {
-        await RONDA_STORAGE.guardarQRsEnCache(qrsParaCache);
-      } else {
-        // Fallback si no existe el método (lo agregaremos a offline-storage.js o similar si es ahi donde vive)
-        // Asumimos que RONDA_STORAGE es la clase de ronda-sync.js? No, es de offline-storage.js?
-        // Ah, RONDA_STORAGE es una variable global instanciada donde?
-        // En ronda-v2.js no la veo instanciada, debe ser global.
-        // Voy a asumir que podemos llamar a un metodo nuevo que creare, o usarlo directo si es IDB.
-        // Por seguridad, agregare el metodo a RONDA_STORAGE en el siguiente paso si falla.
-        // PERO por ahora, intentemos usar lo que hay.
-      }
-
-      // 2. Descargar Perfil Usuario
-      console.log('[Sync] Descargando Perfil...');
-      if (window.offlineStorage) {
-        try {
-          const doc = await db.collection('USUARIOS').doc(userCtx.userId).get();
-          if (doc.exists) {
-            await window.offlineStorage.guardarUserData({
-              id: userCtx.userId,
-              ...doc.data()
-            });
-          }
-        } catch (e) { console.warn(e); }
-      }
-
-      ocultarOverlay();
-      alert(`✅ Datos sincronizados.\n\n${qrsParaCache.length} puntos descargados.\nYa puedes usar la app sin internet.`);
-    } catch (e) {
-      console.error('[Sync] Error:', e);
-      ocultarOverlay();
-      alert('Error sincronizando: ' + e.message);
+      } catch (e) { console.warn(e); }
     }
-  }
 
-  const btnSync = document.getElementById('btn-sync-data');
-  if (btnSync) {
-    btnSync.addEventListener('click', () => {
-      sincronizarDatos();
-    });
+    ocultarOverlay();
+    alert(`✅ Datos sincronizados.\n\n${qrsParaCache.length} puntos descargados.\nYa puedes usar la app sin internet.`);
+  } catch (e) {
+    console.error('[Sync] Error:', e);
+    ocultarOverlay();
+    alert('Error sincronizando: ' + e.message);
   }
+}
 
-  // Mostrar modal al cargar la página (dentro de DOMContentLoaded)
-  mostrarModalTipoRonda();
+const btnSync = document.getElementById('btn-sync-data');
+if (btnSync) {
+  btnSync.addEventListener('click', () => {
+    sincronizarDatos();
+  });
+}
+
+// Mostrar modal al cargar la página (dentro de DOMContentLoaded)
+mostrarModalTipoRonda();
 });

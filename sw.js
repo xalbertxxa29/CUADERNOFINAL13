@@ -1,4 +1,4 @@
-﻿const V = 'v69';
+﻿const V = 'v75';
 const PRECACHE = `precache-${V}`;
 const RUNTIME = `runtime-${V}`;
 
@@ -13,13 +13,13 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const { request: r } = e;
   const u = new URL(r.url);
-  
+
   if (u.origin !== self.location.origin || r.method !== 'GET') return;
-  
+
   const isHTML = r.mode === 'navigate' || r.url.endsWith('.html');
   const isJS_CSS = r.url.endsWith('.js') || r.url.endsWith('.css');
   const isImg = /\.(png|jpg|jpeg|gif|svg|webp|ico|ttf|otf|woff|woff2)$/i.test(u.pathname);
-  
+
   if (isHTML) {
     e.respondWith(
       fetch(r).then(res => {
@@ -39,7 +39,7 @@ self.addEventListener('fetch', (e) => {
             caches.open(RUNTIME).then(ch => ch.put(r, clone));
           }
           return res;
-        }).catch(() => c || new Response('Offline', {status: 503}));
+        }).catch(() => c || new Response('Offline', { status: 503 }));
         return c || fp;
       })
     );
@@ -53,7 +53,7 @@ self.addEventListener('fetch', (e) => {
             caches.open(RUNTIME).then(ch => ch.put(r, clone));
           }
           return res;
-        }).catch(() => new Response('Not found', {status: 404}));
+        }).catch(() => new Response('Not found', { status: 404 }));
       })
     );
   } else {
@@ -64,7 +64,7 @@ self.addEventListener('fetch', (e) => {
           caches.open(RUNTIME).then(c => c.put(r, clone));
         }
         return res;
-      }).catch(() => caches.match(r).catch(() => new Response('Offline', {status: 503})))
+      }).catch(() => caches.match(r).catch(() => new Response('Offline', { status: 503 })))
     );
   }
 });

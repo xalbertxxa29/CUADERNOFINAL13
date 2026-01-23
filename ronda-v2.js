@@ -1968,7 +1968,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ===================== SINCRONIZAR DATOS (CACHE) =====================
   async function sincronizarDatos() {
     if (!navigator.onLine) {
-      alert('Necesitas internet para descargar los datos.');
+      if (UI && UI.alert) UI.alert('Sin Conexión', 'Necesitas internet para descargar los datos.');
+      else alert('Necesitas internet para descargar los datos.');
       return;
     }
 
@@ -2010,7 +2011,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
           const doc = await db.collection('USUARIOS').doc(userCtx.userId).get();
           if (doc.exists) {
-            await window.offlineStorage.guardarUserData({
+            await window.offlineStorage.setUserData({
               id: userCtx.userId,
               ...doc.data()
             });
@@ -2019,11 +2020,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       ocultarOverlay();
-      alert(`✅ Datos sincronizados.\n\n${qrsParaCache.length} puntos descargados.\nYa puedes usar la app sin internet.`);
+      if (UI && UI.alert) {
+        UI.alert('Sincronización Exitosa', `Datos sincronizados correctamente.\n\n${qrsParaCache.length} puntos descargados.\nYa puedes usar la app sin internet.`);
+      } else {
+        alert(`✅ Datos sincronizados.\n\n${qrsParaCache.length} puntos descargados.\nYa puedes usar la app sin internet.`);
+      }
     } catch (e) {
       console.error('[Sync] Error:', e);
       ocultarOverlay();
-      alert('Error sincronizando: ' + e.message);
+      if (UI && UI.alert) UI.alert('Error de Sincronización', 'No se pudieron descargar los datos: ' + e.message);
+      else alert('Error sincronizando: ' + e.message);
     }
   }
 

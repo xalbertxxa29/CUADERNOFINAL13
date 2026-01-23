@@ -159,6 +159,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (overlay) overlay.remove();
   }
 
+  // ===================== CARGAR PERFIL OFFLINE (Robust) =====================
+  async function intentarCargarOffline(retries = 10) {
+    console.log(`[Ronda] Intentando cargar perfil offline... (Intentos: ${retries})`);
+
+    if (!window.offlineStorage || !window.offlineStorage.db) {
+      if (retries > 0) {
+        return new Promise(resolve => {
+          setTimeout(async () => {
+            await intentarCargarOffline(retries - 1);
+            resolve();
+          }, 300);
+        });
+      } else {
+        console.warn('[Ronda] OfflineStorage no listo tras reintentos.');
+        return;
+      }
+    }
+
+    try {
+      const u = await window.offlineStorage.getUserData();
+      if (u && u.cliente && u.unidad) {
+        userCtx.cliente = (u.cliente || '').toUpperCase().trim();
+        userCtx.unidad = (u.unidad || '').toUpperCase().trim();
+        const n = (u.nombres || '').trim();
+        const a = (u.apellidos || '').trim();
+        // Solo actualizar si no hay datos (o sobreescribir provisionalmente)
+        if (!userCtx.nombre || userCtx.nombre === 'Usuario') {
+          userCtx.nombre = `${n} ${a}`.trim();
+        }
+
+        // Actualizar UI
+        const dispCliente = document.getElementById('displayCliente');
+        const dispUnidad = document.getElementById('displayUnidad');
+        const dispUsuario = document.getElementById('displayUsuario');
+
+        if (dispCliente) dispCliente.textContent = userCtx.cliente;
+        if (dispUnidad) dispUnidad.textContent = userCtx.unidad;
+        if (dispUsuario) dispUsuario.textContent = userCtx.nombre || userCtx.userId;
+
+        console.log('[Ronda] Perfil offline cargado:', userCtx.cliente, userCtx.unidad);
+      }
+    } catch (e) {
+      console.warn('[Ronda] Error cargando offline profile:', e);
+    }
+  }
+
   // ===================== AUTH =====================
   auth.onAuthStateChanged(async (user) => {
     if (!user) {
@@ -171,6 +217,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     userCtx.uid = user.uid;
     const userId = user.email.split('@')[0];
     userCtx.userId = userId;
+
+    // 1. CARGA OFFLINE PRIMERO (No bloqueante pero deseable rápido)
+    // Disparamos la carga offline inmediatamente para llenar UI y userCtx
+    intentarCargarOffline().then(() => {
+      // Si estamos offline y ya cargamos, podríamos ocultar loading si estuviera persistente
+    });
 
     try {
       const snap = await db.collection('USUARIOS').doc(userId).get();
@@ -191,6 +243,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         await cargarRondas();
         // Cargar QRs para funcionamiento offline
         cachearQRsDelSitio();
+
+        // 🚀 GUARDAR PERFIL PARA OFFLINE
+        if (window.offlineStorage) {
+          try {
+            await window.offlineStorage.setUserData({
+              email: userCtx.email,
+              userId: userCtx.userId,
+              nombres: nombres,
+              apellidos: apellidos,
+              cliente: userCtx.cliente, // Ya está en upperCase
+              unidad: userCtx.unidad,   // Ya está en upperCase
+              puesto: userCtx.puesto
+            });
+            console.log('[Ronda] Perfil guardado para offline.');
+          } catch (errStore) {
+            console.warn('[Ronda] No se pudo guardar perfil offline:', errStore);
+          }
+        }
 
         // 🚀 Sincronización Automática Silenciosa
         if (navigator.onLine) {
@@ -1462,11 +1532,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         const cachedQRs = await RONDA_STORAGE.obtenerQRsDeCache();
         if (cachedQRs && cachedQRs.length > 0) {
           console.log('[QR Manual] Buscando en cache local...', cachedQRs.length, 'QRs');
-          qrEncontrado = cachedQRs.find(q =>
-            (q.id || '').trim() === codigoQR.trim() &&
-            (q.cliente || '').toUpperCase() === userCtx.cliente &&
-            (q.unidad || '').toUpperCase() === userCtx.unidad
-          );
+
+          // Debug de contexto
+          console.log(`[QR Manual] Contexto: Cliente="${userCtx.cliente}", Unidad="${userCtx.unidad}"`);
+
+          // Búsqueda robusta (normalizando espacios y mayúsculas)
+          qrEncontrado = cachedQRs.find(q => {
+            const idMatch = (q.id || '').trim() === codigoQR.trim();
+            if (!idMatch) return false;
+
+            const qrCliente = (q.cliente || '').toUpperCase().trim();
+            const qrUnidad = (q.unidad || '').toUpperCase().trim();
+            const ctxCliente = (userCtx.cliente || '').toUpperCase().trim();
+            const ctxUnidad = (userCtx.unidad || '').toUpperCase().trim();
+
+            const match = qrCliente === ctxCliente && qrUnidad === ctxUnidad;
+
+            if (idMatch && !match) {
+              console.warn(`[QR Manual] ⚠️ Mismatch de Cliente/Unidad: QR(${qrCliente}/${qrUnidad}) vs USR(${ctxCliente}/${ctxUnidad})`);
+            }
+            return match;
+          });
         }
       } catch (e) {
         console.warn('[QR Manual] Error en cache:', e);
@@ -1501,6 +1587,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (!qrEncontrado) {
         console.error('[QR Manual] QR no encontrado (Online/Offline).');
+        console.log('Contexto Búsqueda:', {
+          qr: codigoQR,
+          cliente: userCtx.cliente,
+          unidad: userCtx.unidad,
+          online: navigator.onLine
+        });
         mostrarErrorQRManual(modal);
         return;
       }

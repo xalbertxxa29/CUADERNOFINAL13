@@ -45,21 +45,49 @@
 
   // ---- Proceso principal ----
   async function flush() {
+    console.log('[sync] 🔄 flush() llamado');
+
     // Debounce + lock
-    if (isFlushing) return;
-    if (!navigator.onLine) return;
-    if (!firebase?.apps?.length) return;
+    if (isFlushing) {
+      console.log('[sync] ⏸️ Ya hay una sincronización en progreso, saliendo');
+      return;
+    }
+    if (!navigator.onLine) {
+      console.log('[sync] 📡 Sin conexión, saliendo');
+      return;
+    }
+    if (!firebase?.apps?.length) {
+      console.log('[sync] ⚠️ Firebase no inicializado, saliendo');
+      return;
+    }
 
     const db = firebase.firestore?.();
     const storage = firebase.storage?.();
-    if (!db || !storage) return;
+    if (!db || !storage) {
+      console.log('[sync] ⚠️ Firestore o Storage no disponibles');
+      return;
+    }
 
     isFlushing = true;
     try {
       // Toma tareas (FIFO); compat con all() legacy
       const getTasks = window.OfflineQueue.takeAll || window.OfflineQueue.all;
       const tasks = await getTasks.call(window.OfflineQueue);
-      if (!Array.isArray(tasks) || !tasks.length) return;
+
+      console.log(`[sync] 📦 Tareas en cola: ${tasks?.length || 0}`);
+
+      if (!Array.isArray(tasks) || !tasks.length) {
+        console.log('[sync] ✅ No hay tareas pendientes');
+        return;
+      }
+
+      // Mostrar feedback visual
+      if (typeof UI !== 'undefined' && UI.showOverlay) {
+        UI.showOverlay('Sincronizando datos offline...', `${tasks.length} pendiente(s)`);
+      }
+      console.log(`[sync] 🚀 Iniciando sincronización de ${tasks.length} tarea(s)`);
+
+      let syncedCount = 0;
 
       for (const t of tasks) {
         const id = t.id;
@@ -176,13 +204,27 @@
 
           // Si todo ok, borramos la tarea
           await window.OfflineQueue.remove?.(id);
+          syncedCount++;
+          console.log(`[sync] ✅ Tarea actualizada: ${id}`);
         } catch (e) {
           console.warn('[sync] Falló tarea, reintenta luego:', e);
         }
       }
+
+      // Feedback final
+      console.log(`[sync] 🎉 Sincronización completada: ${syncedCount}/${tasks.length} exitosas`);
+
+      if (typeof UI !== 'undefined') {
+        if (UI.hideOverlay) UI.hideOverlay();
+        if (UI.toast && syncedCount > 0) {
+          UI.toast(`✅ ${syncedCount} registro(s) sincronizado(s)`);
+        }
+      }
+
     } finally {
       isFlushing = false;
       lastRunTs = Date.now();
+      console.log('[sync] 🔒 Lock liberado');
     }
   }
 

@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Registrar Incidente</title>
 
   <!-- Estilos -->
-  <link rel="stylesheet" href="style.css?v=75"/>
-  <link rel="stylesheet" href="webview.css?v=75"/>
+  <link rel="stylesheet" href="style.css?v=75" />
+  <link rel="stylesheet" href="webview.css?v=75" />
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
 
@@ -15,6 +16,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
 </head>
+
 <body>
   <div class="list-page-container">
     <div class="list-page-header">
@@ -83,10 +85,14 @@
   <!-- Overlay de carga reutilizable -->
   <div id="loadingOverlay" hidden>
     <div class="loading-box">
-      <div class="loading-brand"><div class="loading-ring"></div></div>
+      <div class="loading-brand">
+        <div class="loading-ring"></div>
+      </div>
       <div class="loading-title">Procesando…</div>
       <div class="loading-sub">Por favor, espera un momento.</div>
-      <div class="progress-wrap"><div class="progress-bar"></div></div>
+      <div class="progress-wrap">
+        <div class="progress-bar"></div>
+      </div>
     </div>
   </div>
 
@@ -94,8 +100,7 @@
   <div id="custom-modal" class="modal-overlay" style="display:none;">
     <div class="modal-box" style="width:min(420px,95%);text-align:center; animation: zoomIn .15s ease;">
       <h3 id="modal-title" style="margin-bottom:1rem;">Agregar</h3>
-      <input id="modal-input" type="text" placeholder="Escribe aquí..."
-        style="width:100%;padding:.7rem .9rem;border-radius:10px;
+      <input id="modal-input" type="text" placeholder="Escribe aquí..." style="width:100%;padding:.7rem .9rem;border-radius:10px;
                border:1px solid var(--theme-border);background:var(--theme-card);
                color:var(--theme-text);font-size:1rem;">
       <div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:.6rem;">
@@ -105,7 +110,17 @@
     </div>
   </div>
   <style>
-    @keyframes zoomIn { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes zoomIn {
+      from {
+        transform: scale(.96);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
   </style>
 
   <!-- (Opcional) Iframe modal si vuelves a usar pantallas externas -->
@@ -134,7 +149,7 @@
   <script src="ui.js?v=75"></script>
   <script src="webview.js?v=75"></script>
   <script src="offline-queue.js?v=75"></script>
-  <script src="sync.js?v=75"></script>
+  <script src="sync.js?v=78"></script>
 
   <!-- Lógica de la página (usa el modal centrado) -->
   <script src="registrar_incidente.js?v=75"></script>
@@ -142,8 +157,9 @@
   <!-- SW -->
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+      navigator.serviceWorker.register('./sw.js').catch(() => { });
     }
   </script>
 </body>
+
 </html>

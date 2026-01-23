@@ -74,16 +74,78 @@
         const fotoEmbedded = t.fotoEmbedded || t.foto_base64 || null;
         const firmaEmbedded = t.firmaEmbedded || t.firma_base64 || null;
 
-        // Validaciones mínimas
+        // ========== COMPORTAMIENTO ESPECIAL: Creación de documento completo ==========
+        // Estos tipos NO requieren docPath porque crean documentos nuevos
+        const isFullDocCreation = (t.kind && (
+          t.kind === 'ronda-manual-full' ||
+          t.kind === 'peatonal-full' ||
+          t.kind === 'vehicular-full' ||
+          t.kind === 'incidente-full'
+        ));
+
+        if (isFullDocCreation) {
+          try {
+            console.log(`[sync] Procesando ${t.kind}...`);
+            const payload = { ...t.data };
+
+            // Determinar colección destino
+            let targetCollection = 'RONDA_MANUAL';
+            if (t.kind === 'peatonal-full') targetCollection = 'ACCESO_PEATONAL';
+            else if (t.kind === 'vehicular-full') targetCollection = 'ACCESO_VEHICULAR';
+            else if (t.kind === 'incidente-full') targetCollection = 'INCIDENCIAS_REGISTRADAS';
+
+            // Subir foto si viene en base64
+            if (payload.foto && payload.foto.startsWith('data:')) {
+              const folder = t.kind === 'ronda-manual-full' ? 'rondas_manuales' :
+                t.kind === 'vehicular-full' ? 'acceso-vehicular' :
+                  t.kind === 'incidente-full' ? 'incidencias' : 'misc';
+              const url = await uploadTo(storage, `${folder}/${cliente}/${unidad}/${stamp}_foto.jpg`, payload.foto);
+              payload.foto = url;
+              console.log(`[sync] Foto subida: ${url}`);
+            }
+
+            // Subir fotoBase64 (vehicular)
+            if (payload.fotoBase64 && payload.fotoBase64.startsWith('data:')) {
+              const url = await uploadTo(storage, `acceso-vehicular/${cliente}/${unidad}/${stamp}_foto.jpg`, payload.fotoBase64);
+              payload.fotoURL = url;
+              delete payload.fotoBase64;
+              console.log(`[sync] FotoBase64 subida: ${url}`);
+            }
+
+            // Subir fotoEmbedded (incidentes)
+            if (payload.fotoEmbedded && payload.fotoEmbedded.startsWith('data:')) {
+              const url = await uploadTo(storage, `incidencias/${cliente}/${unidad}/${stamp}_foto.jpg`, payload.fotoEmbedded);
+              payload.fotoURL = url;
+              delete payload.fotoEmbedded;
+              console.log(`[sync] FotoEmbedded subida: ${url}`);
+            }
+
+            // Agregar timestamp de sincronización
+            payload.sincronizadoEn = firebase.firestore.FieldValue.serverTimestamp();
+
+            // Crear documento
+            const docRef = await db.collection(targetCollection).add(payload);
+            console.log(`[sync] ✅ Documento creado en ${targetCollection}: ${docRef.id}`);
+
+            // Remover de la cola
+            await window.OfflineQueue.remove?.(id);
+            continue; // Siguiente tarea
+          } catch (err) {
+            console.error(`[sync] ❌ Error subiendo ${t.kind}:`, err);
+            continue; // Reintentar en próxima ejecución
+          }
+        }
+
+        // ========== VALIDACIÓN PARA TAREAS DE ACTUALIZACIÓN ==========
+        // Solo las tareas que NO son creación de documentos requieren docPath
         if (!docPath || !cliente || !unidad) {
-          // Tarea mal formada → la descartamos para no bloquear la cola
           console.warn('[sync] Tarea incompleta, se descarta:', t);
           await window.OfflineQueue.remove?.(id);
           continue;
         }
 
+        // ========== LÓGICA DE ACTUALIZACIÓN PARA TAREAS NORMALES ==========
         const updates = {
-          // marcas de reconexión
           reconectado: true,
           reconectadoEn: firebase.firestore.FieldValue.serverTimestamp(),
           reconectadoLocalAt: nowLocalISO(),
@@ -107,38 +169,14 @@
             changed = true;
           }
 
-          // Comportamiento especial: Creación de documento completo (ej: Ronda Manual Offline)
-          if (t.kind === 'ronda-manual-full' || t.type === 'ronda-manual-full') {
-            try {
-              const payload = { ...t.data };
-              // Subir foto si viene en base64 dentro del payload
-              if (payload.foto && payload.foto.startsWith('data:')) {
-                const url = await uploadTo(storage, `rondas_manuales/${cliente}/${unidad}/${stamp}_foto.jpg`, payload.foto);
-                payload.foto = url;
-              }
-              // Agregar timestamp de subida
-              payload.sincronizadoEn = firebase.firestore.FieldValue.serverTimestamp();
-
-              await db.collection('RONDA_MANUAL').add(payload);
-              await window.OfflineQueue.remove?.(id);
-              continue; // Tarea completada
-            } catch (err) {
-              console.error('[sync] Error subiendo ronda manual:', err);
-              continue; // Reintentar luego
-            }
-          }
-
-          // Aplica cambios si hubo algo que actualizar (Flujo normal de updates)
+          // Aplica cambios si hubo algo que actualizar
           if (changed) {
             await db.doc(docPath).set(updates, { merge: true });
-          } else {
-            // await db.doc(docPath).set(updates, { merge: true });
           }
 
           // Si todo ok, borramos la tarea
           await window.OfflineQueue.remove?.(id);
         } catch (e) {
-          // si falla, lo dejamos para el próximo intento
           console.warn('[sync] Falló tarea, reintenta luego:', e);
         }
       }

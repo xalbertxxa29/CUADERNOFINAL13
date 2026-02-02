@@ -239,6 +239,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Verificar si hay ronda EN_PROGRESO del usuario actual
         await verificarRondaEnProgreso(nombreCompleto);
+
+        // Guardar nombre en contexto para uso global inmediato
+        userCtx.nombre = nombreCompleto;
+
         // Cargar rondas disponibles
         await cargarRondas();
         // Cargar QRs para funcionamiento offline
@@ -1875,34 +1879,42 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       // 1. Obtener nombre completo SIN bloquear (Offline First)
-      let nombreCompleto = userCtx.userId;
+      // Primero: Intentar usar lo que tenemos en memoria (lo ideal)
+      let nombreCompleto = userCtx.nombre || userCtx.userId;
 
-      // Intentar usar contexto ya cargado (si existe)
-      if (currentUser && currentUser.email) {
-        // Si auth.onAuthStateChanged ya corrió, userCtx tiene el nombre si lo sacó de peatonal logic o parecido
-        // Pero ronda-v2.js carga nombre en verificarRondaEnProgreso.
-        // Intentemos usar offlineStorage si está disponible.
-        if (window.offlineStorage) {
-          try {
-            const u = await window.offlineStorage.getUserData();
-            if (u) {
-              nombreCompleto = `${u.NOMBRES || ''} ${u.APELLIDOS || ''}`.trim();
-              userCtx.cliente = u.CLIENTE || userCtx.cliente;
-              userCtx.unidad = u.UNIDAD || userCtx.unidad;
+      // Segundo: Si no tenemos nombre en memoria, intentar offlineStorage
+      if ((!nombreCompleto || nombreCompleto === userCtx.userId) && window.offlineStorage) {
+        try {
+          const u = await window.offlineStorage.getUserData();
+          if (u && u.NOMBRES) {
+            const nombreOffline = `${u.NOMBRES || ''} ${u.APELLIDOS || ''}`.trim();
+            if (nombreOffline.length > 0) {
+              nombreCompleto = nombreOffline;
+              // Actualizar contexto también
+              userCtx.nombre = nombreCompleto;
             }
-          } catch (e) { }
-        }
+          }
+        } catch (e) { }
       }
 
-      // Si aún así no tenemos nombre y HAY red, intentamos fetch rápido con timeout
-      if (nombreCompleto === userCtx.userId && navigator.onLine) {
+      // Tercero: Si aún así no tenemos nombre y HAY red, intentamos fetch rápido
+      if ((!nombreCompleto || nombreCompleto === userCtx.userId) && navigator.onLine) {
         try {
           const doc = await db.collection('USUARIOS').doc(userCtx.userId).get();
           if (doc.exists) {
             const d = doc.data();
-            nombreCompleto = `${d.NOMBRES || ''} ${d.APELLIDOS || ''}`.trim();
+            const nombreOnline = `${d.NOMBRES || ''} ${d.APELLIDOS || ''}`.trim();
+            if (nombreOnline.length > 0) {
+              nombreCompleto = nombreOnline;
+              userCtx.nombre = nombreCompleto;
+            }
           }
         } catch (e) { console.warn('Fetch nombre failed', e); }
+      }
+
+      // Cuarto: Fallback final de seguridad (jamas enviar vacio)
+      if (!nombreCompleto || nombreCompleto.trim() === '') {
+        nombreCompleto = userCtx.userId || currentUser.email || 'Usuario Desconocido';
       }
 
       const registro = {

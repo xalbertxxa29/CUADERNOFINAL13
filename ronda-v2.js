@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const nombreCompleto = `${nombres} ${apellidos}`.trim();
 
         // Verificar si hay ronda EN_PROGRESO del usuario actual
-        await verificarRondaEnProgreso(nombreCompleto);
+        await verificarRondaEnProgreso(userCtx.email);
 
         // Guardar nombre en contexto para uso global inmediato
         userCtx.nombre = nombreCompleto;
@@ -307,26 +307,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ===================== VERIFICAR RONDA EN PROGRESO =====================
-  async function verificarRondaEnProgreso(userId) {
+  async function verificarRondaEnProgreso(userEmail) {
     try {
-      // Buscar rondas EN_PROGRESO del usuario actual en RONDAS_COMPLETADAS
-      const query = db.collection('RONDAS_COMPLETADAS')
-        .where('estado', '==', 'EN_PROGRESO')
-        .where('usuario', '==', userId);
+      console.log('[Ronda] Verificando sesión activa para:', userEmail);
 
-      const snapshot = await query.get();
+      const emailQuery = db.collection('RONDAS_COMPLETADAS')
+        .where('estado', '==', 'EN_PROGRESO')
+        .where('usuarioEmail', '==', userEmail);
+
+      let snapshot = await emailQuery.get();
+
+      if (snapshot.empty && userCtx.userId) {
+        // Fallback por nombre para compatibilidad
+        const nameQuery = db.collection('RONDAS_COMPLETADAS')
+          .where('estado', '==', 'EN_PROGRESO')
+          .where('usuario', '==', userCtx.nombre || userCtx.userId);
+
+        const snapName = await nameQuery.get();
+        if (!snapName.empty) snapshot = snapName;
+      }
 
       if (!snapshot.empty) {
         const doc = snapshot.docs[0];
         rondaEnProgreso = { ...doc.data() };
-        rondaIdActual = doc.id; // El ID debe ser igual al documento de Rondas_QR
+        rondaIdActual = doc.id;
 
-        console.log('[Ronda] Ronda recuperada:', rondaEnProgreso.nombre, 'ID:', rondaIdActual);
-
-        // Guardar en cache local para acceso rápido
+        console.log('[Ronda] 🔄 SESIÓN RECUPERADA:', rondaEnProgreso.nombre, 'ID:', rondaIdActual);
         await RONDA_STORAGE.guardarEnCache(rondaIdActual, rondaEnProgreso);
 
-        // Verificar si ya pasó la tolerancia
         const ahoraMs = Date.now();
         const inicioMs = rondaEnProgreso.horarioInicio.toMillis ?
           rondaEnProgreso.horarioInicio.toMillis() :
@@ -339,21 +347,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             : rondaEnProgreso.tolerancia * 60000;
 
         if (elapsedMs > toleranciaMs) {
-          console.log('[Ronda] Tolerancia expirada, terminando automáticamente...');
+          console.log('[Ronda] Tolerancia expirada al recuperar, terminando...');
           await terminarRondaAuto();
         } else {
           mostrarRondaEnProgreso();
           iniciarCronometro();
         }
       } else {
-        // Intentar recuperar del cache si no hay en Firebase
-        const cacheData = await buscarRondaEnCachePorUsuario(userId);
-        if (cacheData) {
-          console.log('[Ronda] Ronda recuperada del cache local');
-          rondaEnProgreso = cacheData.data;
-          rondaIdActual = cacheData.id;
-          mostrarRondaEnProgreso();
-          iniciarCronometro();
+        // Intentar recuperar del cache local si no hay red
+        if (window.offlineStorage) {
+          const cacheData = await buscarRondaEnCachePorUsuario(userEmail);
+          if (cacheData) {
+            console.log('[Ronda] 📂 Recuperado del cache offline');
+            rondaEnProgreso = cacheData.data;
+            rondaIdActual = cacheData.id;
+            mostrarRondaEnProgreso();
+            iniciarCronometro();
+          }
         }
       }
     } catch (e) {
@@ -362,7 +372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ===================== BUSCAR RONDA EN CACHE =====================
-  async function buscarRondaEnCachePorUsuario(nombreCompleto) {
+  async function buscarRondaEnCachePorUsuario(identifier) {
     try {
       const db = await RONDA_STORAGE.openDB();
       return new Promise((resolve, reject) => {
@@ -373,7 +383,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         request.onsuccess = () => {
           const items = request.result;
           for (let item of items) {
-            if (item.data?.usuario === nombreCompleto && item.data?.estado === 'EN_PROGRESO') {
+            const matchEmail = item.data?.usuarioEmail === identifier;
+            const matchName = item.data?.usuario === identifier;
+
+            if ((matchEmail || matchName) && item.data?.estado === 'EN_PROGRESO') {
               resolve({ id: item.id, data: item.data });
               return;
             }
@@ -393,10 +406,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const listDiv = document.getElementById('rondas-list');
     if (!listDiv) return;
 
-    // Si hay ronda en progreso, no mostrar otras
     if (rondaEnProgreso) return;
 
     try {
+      listDiv.innerHTML = '<div style="color:#ccc; text-align:center;">Cargando rondas...</div>';
+
       let snapshot = await db.collection('Rondas_QR').get();
       let rondasFiltradas = [];
 
@@ -410,29 +424,72 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
 
+      const statusMap = {};
+      try {
+        const historyQuery = db.collection('RONDAS_COMPLETADAS')
+          .where('usuarioEmail', '==', userCtx.email)
+          .where('horarioInicio', '>=', firebase.firestore.Timestamp.fromDate(new Date(new Date().setHours(0, 0, 0, 0))));
+
+        const historySnap = await historyQuery.get();
+        historySnap.forEach(doc => {
+          const data = doc.data();
+          if (data.rondaId) {
+            statusMap[data.rondaId] = {
+              estado: data.estado,
+              docId: doc.id,
+              data: data
+            };
+          }
+        });
+      } catch (errHist) {
+        console.warn('No se pudo verificar historial:', errHist);
+      }
+
       if (rondasFiltradas.length === 0) {
-        listDiv.innerHTML = '<p style="color:#999;">No hay rondas</p>';
+        listDiv.innerHTML = '<p style="color:#999; text-align: center; margin-top: 20px;">No hay rondas asignadas.</p>';
         return;
       }
 
       listDiv.innerHTML = '';
       rondasFiltradas.forEach(ronda => {
-        const card = crearCardRonda(ronda);
+        const estadoPrevio = statusMap[ronda.id] || null;
+        const card = crearCardRonda(ronda, estadoPrevio);
         listDiv.appendChild(card);
       });
     } catch (e) {
       console.error('[Ronda] Error cargando:', e);
+      listDiv.innerHTML = '<p style="color:#ef4444;">Error de conexión</p>';
     }
   }
 
   // ===================== CREAR CARD RONDA =====================
-  function crearCardRonda(ronda) {
+  function crearCardRonda(ronda, estadoPrevio = null) {
     const div = document.createElement('div');
 
-    // Validar si la ronda puede iniciarse
+    // Validar si la ronda puede iniciarse (o continuarse)
     const validacion = validarRonda(ronda);
-    const puedeIniciar = validacion.activa;
+    let puedeIniciar = validacion.activa;
     const motivo = validacion.motivo;
+
+    // Sobrescribir lógica si hay estado previo
+    let esContinuar = false;
+    let esCompletada = false;
+    let labelBoton = 'Iniciar';
+    let colorBoton = '#ef4444'; // Rojo default
+
+    if (estadoPrevio) {
+      if (estadoPrevio.estado === 'EN_PROGRESO') {
+        puedeIniciar = true; // Forzamos activo si hay sesión pendiente
+        esContinuar = true;
+        labelBoton = 'Continuar';
+        colorBoton = '#10b981'; // Verde
+      } else if (estadoPrevio.estado === 'TERMINADA' || estadoPrevio.estado === 'INCOMPLETA') {
+        esCompletada = true;
+        puedeIniciar = false; // Ya se hizo
+        labelBoton = estadoPrevio.estado === 'TERMINADA' ? 'Completada' : 'Incompleta';
+        colorBoton = '#666';
+      }
+    }
 
     div.style.cssText = `
       background: ${puedeIniciar ? '#222' : '#3f3f3f'}; 
@@ -449,22 +506,55 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div style="font-size: 0.9em; color: ${puedeIniciar ? '#ccc' : '#666'}; margin-top: 5px;">
             🕒 ${ronda.horario || '--:--'} | ⏱️ ${ronda.tolerancia || '--'} ${ronda.toleranciaTipo || 'minutos'}
           </div>
-          ${!puedeIniciar ? `<div style="font-size: 0.85em; color: #ff6b6b; margin-top: 8px;">⚠️ ${motivo}</div>` : ''}
+          ${!puedeIniciar && !esCompletada ? `<div style="font-size: 0.85em; color: #ff6b6b; margin-top: 8px;">⚠️ ${motivo}</div>` : ''}
+          ${esCompletada ? `<div style="font-size: 0.85em; color: #10b981; margin-top: 8px;">✅ ${estadoPrevio.estado}</div>` : ''}
         </div>
         <button style="
-          background: ${puedeIniciar ? '#ef4444' : '#999'}; 
+          background: ${colorBoton}; 
           color: white; border: none; padding: 8px 16px;
           border-radius: 4px; cursor: ${puedeIniciar ? 'pointer' : 'not-allowed'}; 
           font-weight: 500;
-        " ${!puedeIniciar ? 'disabled' : ''}>${puedeIniciar ? 'Iniciar' : 'Inactiva'}</button>
+        " ${!puedeIniciar ? 'disabled' : ''}>${labelBoton}</button>
       </div>
     `;
 
     if (puedeIniciar) {
-      div.querySelector('button').addEventListener('click', () => iniciarRonda(ronda));
+      const btn = div.querySelector('button');
+      if (esContinuar) {
+        btn.addEventListener('click', () => reanudarRonda(estadoPrevio));
+      } else {
+        btn.addEventListener('click', () => iniciarRonda(ronda));
+      }
     }
 
     return div;
+  }
+
+  // ===================== REANUDAR RONDA =====================
+  async function reanudarRonda(estadoPrevio) {
+    if (!estadoPrevio || !estadoPrevio.docId) return;
+    const overlay = mostrarOverlay('Recuperando ronda...');
+    try {
+      rondaIdActual = estadoPrevio.docId;
+      rondaEnProgreso = estadoPrevio.data;
+
+      // Asegurarse de tener data completa si viene incompleta del listado
+      if (!rondaEnProgreso.puntosRegistrados) {
+        const doc = await db.collection('RONDAS_COMPLETADAS').doc(rondaIdActual).get();
+        rondaEnProgreso = doc.data();
+      }
+
+      console.log('[Ronda] Reanudando manualmente:', rondaEnProgreso.nombre);
+      await RONDA_STORAGE.guardarEnCache(rondaIdActual, rondaEnProgreso);
+
+      ocultarOverlay();
+      mostrarRondaEnProgreso();
+      iniciarCronometro();
+    } catch (e) {
+      console.error(e);
+      ocultarOverlay();
+      alert('Error al reanudar: ' + e.message);
+    }
   }
 
   // ===================== VALIDAR RONDA =====================

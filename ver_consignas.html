@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ver Consignas</title>
 
   <!-- Estilos -->
-  <link rel="stylesheet" href="style.css?v=75"/>
-  <link rel="stylesheet" href="webview.css?v=75"/>
+  <link rel="stylesheet" href="style.css?v=75" />
+  <link rel="stylesheet" href="webview.css?v=75" />
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
 
@@ -15,12 +16,16 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
 </head>
+
 <body>
   <div class="list-page-container">
     <div class="list-page-header">
       <a class="btn-back" href="menu.html"><i class="fa-solid fa-arrow-left"></i> Atrás</a>
       <h1 class="page-title">Consignas</h1>
-      <span></span>
+      <button id="btnGeneralReport" class="btn-primary"
+        style="background-color: #27ae60; padding: 5px 10px; font-size: 0.9rem;">
+        <i class="fas fa-file-pdf"></i> Reporte General
+      </button>
     </div>
 
     <div id="consignas-container"></div>
@@ -39,9 +44,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js"></script>
 
   <!-- App base -->
-  <script src="firebase-config.js?v=75"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <script src="report-service.js?v=79"></script>
+  <script src="firebase-config.js?v=51"></script>
   <script src="initFirebase.js?v=75"></script>
   <script src="ui.js?v=75"></script>
   <script src="webview.js?v=75"></script>
@@ -49,11 +58,12 @@
 
 
   <!-- Lógica -->
- <script src="ver_consignas.js?v=75"></script>
+  <script src="ver_consignas.js?v=78"></script>
 
   <!-- SW -->
   <script>
-    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(() => { }); }
   </script>
 </body>
+
 </html>

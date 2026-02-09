@@ -2,33 +2,33 @@
 document.addEventListener('DOMContentLoaded', () => {
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
-  const db   = firebase.firestore();
+  const db = firebase.firestore();
 
   // --- UI & DOM ---
-  const container   = document.getElementById('consignas-container');
-  const lb          = document.getElementById('imageLightbox');
-  const lbImg       = document.getElementById('lightboxImg');
-  const lbClose     = document.querySelector('.lightbox-close');
-  const lbBackdrop  = document.querySelector('.lightbox-backdrop');
+  const container = document.getElementById('consignas-container');
+  const lb = document.getElementById('imageLightbox');
+  const lbImg = document.getElementById('lightboxImg');
+  const lbClose = document.querySelector('.lightbox-close');
+  const lbBackdrop = document.querySelector('.lightbox-backdrop');
 
   const UX = {
     show: (m) => (window.UI && UI.showOverlay) ? UI.showOverlay(m) : void 0,
     hide: () => (window.UI && UI.hideOverlay) ? UI.hideOverlay() : void 0,
-    alert: (t, m) => (window.UI && UI.alert) ? UI.alert(t, m) : alert(`${t||''}\n\n${m||''}`),
+    alert: (t, m) => (window.UI && UI.alert) ? UI.alert(t, m) : alert(`${t || ''}\n\n${m || ''}`),
   };
 
   // --- Helpers de formato y datos (del código funcional) ---
-  const esc = (s) => (s ?? '').toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+  const esc = (s) => (s ?? '').toString().replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
   const fmtDateTime = (ts) => {
     try {
       const d = ts?.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
-      return d ? d.toLocaleString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      return d ? d.toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
     } catch { return ''; }
   };
   const fmtDate = (ts) => {
     try {
       const d = ts?.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
-      return d ? d.toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
+      return d ? d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
     } catch { return ''; }
   };
   const getMillis = (ts) => {
@@ -81,13 +81,38 @@ document.addEventListener('DOMContentLoaded', () => {
       </article>
     `;
   }
-  
+
   function renderList(items) {
+    container.innerHTML = '';
     if (!items.length) {
       container.innerHTML = `<p class="muted">No hay consignas disponibles.</p>`;
       return;
     }
-    container.innerHTML = items.map(card).join('');
+
+    items.forEach(item => {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = card(item); // card returns string
+      const article = tempDiv.firstElementChild;
+
+      // Add button logic
+      const btnContainer = document.createElement('div');
+      btnContainer.style.cssText = "margin-top:10px; border-top:1px solid #eee; padding-top:8px; text-align:right;";
+      btnContainer.innerHTML = `
+          <button class="btn-report" style="background:transparent; border:1px solid #ccc; color:#555; border-radius:4px; padding:5px 10px; cursor:pointer;">
+              <i class="fas fa-file-pdf" style="color:#e74c3c;"></i> Descargar Reporte
+          </button>
+        `;
+
+      btnContainer.querySelector('button').addEventListener('click', (e) => {
+        e.stopPropagation();
+        ReportService.generateAndUpload(item, 'CONSIGNA', 'consigna');
+      });
+
+      article.appendChild(btnContainer);
+      container.appendChild(article);
+    });
+
+    // Re-attach lightbox listeners locally if needed, or use delegation
     container.querySelectorAll('[data-lightbox]').forEach(img => {
       img.addEventListener('click', () => {
         if (!lb || !lbImg) return;
@@ -106,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!prof.exists) throw new Error('No se encontró el perfil del usuario.');
 
       const { CLIENTE, UNIDAD } = prof.data();
-      const query = (col) => db.collection(col).where('cliente','==',CLIENTE).where('unidad','==',UNIDAD).get();
+      const query = (col) => db.collection(col).where('cliente', '==', CLIENTE).where('unidad', '==', UNIDAD).get();
 
       const [permsSnap, tempsSnap] = await Promise.all([query('CONSIGNA_PERMANENTE'), query('CONSIGNA_TEMPORAL')]);
 
@@ -136,11 +161,28 @@ document.addEventListener('DOMContentLoaded', () => {
           puesto: x.puesto || null,
           fotoURL: x.fotoURL || x.fotoEmbedded || null,
         }));
-      
-      const all = [...permanentes, ...temporales].sort((a,b) => getMillis(b.timestamp) - getMillis(a.timestamp));
+
+      const all = [...permanentes, ...temporales].sort((a, b) => getMillis(b.timestamp) - getMillis(a.timestamp));
+
+      // Listener Reporte General
+      const btnGeneral = document.getElementById('btnGeneralReport');
+      if (btnGeneral) {
+        // Remover listener previo para evitar duplicados si se llama varias veces (aunque load es onAuth)
+        const newBtn = btnGeneral.cloneNode(true);
+        btnGeneral.parentNode.replaceChild(newBtn, btnGeneral);
+
+        newBtn.addEventListener('click', () => {
+          if (!all.length) {
+            UX.alert('Aviso', 'No hay consignas para reportar.');
+            return;
+          }
+          ReportService.generateGeneralListReport(all, 'CONSIGNA', 'REPORTE GENERAL DE CONSIGNAS');
+        });
+      }
+
       renderList(all);
 
-    } catch(err) {
+    } catch (err) {
       console.error(err);
       UX.alert('Error', err.message || 'No fue posible cargar las consignas.');
     } finally {
@@ -148,9 +190,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  auth.onAuthStateChanged((u) => u ? loadConsignas(u) : (window.location.href='index.html'));
+  auth.onAuthStateChanged((u) => u ? loadConsignas(u) : (window.location.href = 'index.html'));
 
-  const closeLb = () => lb?.setAttribute('hidden','');
+  const closeLb = () => lb?.setAttribute('hidden', '');
   lbClose?.addEventListener('click', closeLb);
   lbBackdrop?.addEventListener('click', closeLb);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLb(); });

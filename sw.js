@@ -1,4 +1,4 @@
-﻿const V = 'v77';
+﻿const V = 'v79';
 const PRECACHE = `precache-${V}`;
 const RUNTIME = `runtime-${V}`;
 
@@ -30,6 +30,7 @@ const PRECACHE_URLS = [
   './monitor-sync.js',
   './offline-sync.js',
   './ronda-sync.js',
+  './report-service.js',
 
   // Páginas y Scripts adicionales
   './accesovehicular.html', './accesovehicular.js',
@@ -62,7 +63,9 @@ const PRECACHE_URLS = [
   'https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js',
-  'https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js'
+  'https://www.gstatic.com/firebasejs/10.9.0/firebase-storage-compat.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js'
 ];
 
 self.addEventListener('install', (e) => {

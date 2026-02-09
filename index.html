@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Liderman - Acceso</title>
 
   <!-- Estilos -->
-  <link rel="stylesheet" href="style.css?v=75"/>
-  <link rel="stylesheet" href="webview.css?v=75"/>
+  <link rel="stylesheet" href="style.css?v=75" />
+  <link rel="stylesheet" href="webview.css?v=75" />
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
 
@@ -43,13 +44,10 @@
           </div>
           <div class="input-group">
             <label for="login-pass">Contraseña</label>
-            <input type="password" id="login-pass" required autocomplete="current-password" minlength="6"/>
+            <input type="password" id="login-pass" required autocomplete="current-password" minlength="6" />
           </div>
           <button id="login-btn" type="submit" class="btn-primary">Acceder</button>
           <div style="text-align:center; margin-top:1rem;">
-            <a href="limpiar-cache.html?auto=true" style="font-size:0.9rem; color:#667eea; text-decoration:none; display:inline-block; padding:0.5rem 1rem; border-radius:4px;">
-              🧹 Limpiar Cache
-            </a>
           </div>
         </form>
       </div>
@@ -140,7 +138,7 @@
       <h3 style="text-align:center;margin-bottom:.75rem;">Añadir Cliente</h3>
       <div class="input-group">
         <label for="nuevo-cliente">Nombre del Cliente</label>
-        <input id="nuevo-cliente" type="text" placeholder="Ej: LIDERMAN" autocomplete="off"/>
+        <input id="nuevo-cliente" type="text" placeholder="Ej: LIDERMAN" autocomplete="off" />
       </div>
       <div class="button-group" style="justify-content:flex-end;">
         <button id="cancel-add-cliente" type="button" class="btn-secondary">Cancelar</button>
@@ -156,7 +154,7 @@
       <p id="ctx-unidad" class="muted"></p>
       <div class="input-group">
         <label for="nueva-unidad">Nombre de la Unidad</label>
-        <input id="nueva-unidad" type="text" placeholder="Ej: CHORRILLOS" autocomplete="off"/>
+        <input id="nueva-unidad" type="text" placeholder="Ej: CHORRILLOS" autocomplete="off" />
       </div>
       <div class="button-group" style="justify-content:flex-end;">
         <button id="cancel-add-unidad" type="button" class="btn-secondary">Cancelar</button>
@@ -172,7 +170,7 @@
       <p id="ctx-puesto" class="muted"></p>
       <div class="input-group">
         <label for="nuevo-puesto">Nombre del Puesto</label>
-        <input id="nuevo-puesto" type="text" placeholder="Ej: CONTROL ACCESO" autocomplete="off"/>
+        <input id="nuevo-puesto" type="text" placeholder="Ej: CONTROL ACCESO" autocomplete="off" />
       </div>
       <div class="button-group" style="justify-content:flex-end;">
         <button id="cancel-add-puesto" type="button" class="btn-secondary">Cancelar</button>
@@ -184,10 +182,14 @@
   <!-- Overlay de carga/alert reutilizable -->
   <div id="loadingOverlay" hidden>
     <div class="loading-box">
-      <div class="loading-brand"><div class="loading-ring"></div></div>
+      <div class="loading-brand">
+        <div class="loading-ring"></div>
+      </div>
       <div class="loading-title">Cargando…</div>
       <div class="loading-sub">Por favor, espera un momento.</div>
-      <div class="progress-wrap"><div class="progress-bar"></div></div>
+      <div class="progress-wrap">
+        <div class="progress-bar"></div>
+      </div>
     </div>
   </div>
 
@@ -221,11 +223,11 @@
   <!-- Tema + Service Worker -->
   <script>
     // Tema persistente
-    (function(){
+    (function () {
       const root = document.documentElement;
       const current = localStorage.getItem('theme') || root.getAttribute('data-theme') || 'dark';
       root.setAttribute('data-theme', current);
-      document.getElementById('themeToggle')?.addEventListener('click', ()=>{
+      document.getElementById('themeToggle')?.addEventListener('click', () => {
         const next = (root.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
         root.setAttribute('data-theme', next);
         localStorage.setItem('theme', next);
@@ -234,8 +236,9 @@
 
     // Service Worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js?v=75').catch(()=>{});
+      navigator.serviceWorker.register('./sw.js?v=75').catch(() => { });
     }
   </script>
 </body>
+
 </html>

@@ -156,18 +156,39 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function render(docs) {
+    cont.innerHTML = '';
     if (!docs.length) {
       cont.innerHTML = `<p class="muted">Sin incidencias registradas.</p>`;
       return;
     }
-    const html = docs.map(d => {
+    docs.forEach(d => {
       const data = d.data();
-      return cardIncidenciaHTML(data);
-    }).join('');
-    cont.innerHTML = html;
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = cardIncidenciaHTML(data);
+      const article = tempDiv.firstElementChild;
+
+      // Add button
+      const btnContainer = document.createElement('div');
+      btnContainer.style.cssText = "margin-top:10px; border-top:1px solid #444; padding-top:8px; text-align:right;";
+      btnContainer.innerHTML = `
+          <button class="btn-report" style="background:transparent; border:1px solid #666; color:#ccc; border-radius:4px; padding:5px 10px; cursor:pointer;">
+              <i class="fas fa-file-pdf" style="color:#e74c3c;"></i> Descargar Reporte
+          </button>
+        `;
+      btnContainer.querySelector('button').addEventListener('click', (e) => {
+        e.stopPropagation();
+        ReportService.generateAndUpload(data, 'INCIDENCIA', 'incidencia');
+      });
+
+      article.appendChild(btnContainer);
+      cont.appendChild(article);
+    });
   }
 
   // ---------- Carga / paginación ----------
+  // ---------- Carga / paginación ----------
+  let allLoadedData = []; // Store loaded data
+
   async function cargarRegistros(direction) {
     if (!perfil) return;
     UX.show('Cargando incidencias…');
@@ -181,6 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
           cursor = pageStack[pageStack.length - 1];
         } else { UX.hide(); return; }
       }
+
+      // Reset if not paging
+      if (!direction) allLoadedData = [];
 
       const snap = await buildQuery(direction, cursor).get();
 
@@ -197,6 +221,9 @@ document.addEventListener('DOMContentLoaded', () => {
       lastDoc = last;
       if (direction !== 'prev') pageStack.push(first);
 
+      // Add new data
+      snap.docs.forEach(d => allLoadedData.push(d.data()));
+
       render(snap.docs);
 
       prevBtn.disabled = pageStack.length <= 1;
@@ -210,6 +237,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------- Eventos ----------
+  const btnGeneral = document.getElementById('btnGeneralReport');
+  if (btnGeneral) {
+    btnGeneral.addEventListener('click', () => {
+      if (allLoadedData.length === 0) {
+        UX.alert('Aviso', 'No hay datos cargados para generar el reporte general.');
+        return;
+      }
+      ReportService.generateGeneralListReport(allLoadedData, 'INCIDENCIA', 'REPORTE GENERAL DE INCIDENCIAS');
+    });
+  }
+
   btnBuscar?.addEventListener('click', () => {
     pageStack = []; lastDoc = null; cargarRegistros();
   });

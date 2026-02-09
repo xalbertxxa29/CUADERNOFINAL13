@@ -40,12 +40,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // Variables globales para reporte
+    let allLoadedData = [];
+
     // 2. Cargar Registros
     async function cargarRegistros(isNextPage = false) {
         if (!isNextPage) {
             resultsList.innerHTML = '<div class="info-msg">Cargando...</div>';
             lastDoc = null;
             loadMoreContainer.style.display = 'none';
+            allLoadedData = []; // Reset on new search
         }
 
         try {
@@ -95,6 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             snapshot.forEach(doc => {
                 const data = doc.data();
+                allLoadedData.push(data); // Store for report
                 const card = crearCard(data);
                 resultsList.appendChild(card);
             });
@@ -118,6 +123,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
+
+    // ... (rest of crearCard and helper functions remain same, update btnGeneralReport listener)
 
     // 3. Renderizar Card
     function crearCard(data) {
@@ -158,7 +165,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       <div style="margin-top:0.6rem; font-size:0.9rem; color:var(--theme-text);">
         <strong>Usuario:</strong> ${data.usuario}
       </div>` : ''}
+      <div style="margin-top:10px; border-top:1px solid #444; padding-top:8px; text-align:right;">
+          <button class="btn-report" style="background:transparent; border:1px solid #666; color:var(--theme-text); border-radius:4px; padding:5px 10px; cursor:pointer;">
+              <i class="fas fa-file-pdf" style="color:#e74c3c;"></i> Descargar Reporte
+          </button>
+      </div>
     `;
+
+        div.querySelector('.btn-report').addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Asegurar que tenemos puntos para el reporte
+            ReportService.generateAndUpload(data, 'RONDA_PROGRAMADA', 'ronda');
+        });
+
         return div;
     }
 
@@ -189,4 +208,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnLoadMore.addEventListener('click', () => {
         cargarRegistros(true);
     });
+
+    const btnGeneral = document.getElementById('btnGeneralReport');
+    if (btnGeneral) {
+        btnGeneral.addEventListener('click', () => {
+            if (allLoadedData.length === 0) {
+                alert('No hay datos cargados para generar el reporte general.');
+                return;
+            }
+            ReportService.generateGeneralListReport(allLoadedData, 'RONDA_PROGRAMADA', 'REPORTE GENERAL DE RONDAS PROGRAMADAS');
+        });
+    }
 });

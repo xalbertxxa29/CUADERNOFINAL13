@@ -42,11 +42,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // 2. Cargar Registros
+    let allLoadedData = [];
     async function cargarRegistros(isNextPage = false) {
         if (!isNextPage) {
             resultsList.innerHTML = '<div class="info-msg">Cargando...</div>';
             lastDoc = null;
             loadMoreContainer.style.display = 'none';
+            allLoadedData = [];
         }
 
         try {
@@ -99,6 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             snapshot.forEach(doc => {
                 const data = doc.data();
+                allLoadedData.push(data);
                 const card = crearCard(data);
                 resultsList.appendChild(card);
             });
@@ -155,7 +158,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       ${data.foto ? `
         <img src="${data.foto}" class="registro-imagen" onclick="window.open('${data.foto}', '_blank')" alt="Foto del punto">
       ` : ''}
+      <div style="margin-top:10px; border-top:1px solid #444; padding-top:8px; text-align:right;">
+          <button class="btn-report" style="background:transparent; border:1px solid #666; color:var(--theme-text); border-radius:4px; padding:5px 10px; cursor:pointer;">
+              <i class="fas fa-file-pdf" style="color:#e74c3c;"></i> Descargar Reporte
+          </button>
+      </div>
     `;
+
+        div.querySelector('.btn-report').addEventListener('click', (e) => {
+            e.stopPropagation();
+            ReportService.generateAndUpload(data, 'RONDA_MANUAL', 'manual');
+        });
+
         return div;
     }
 
@@ -186,5 +200,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnLoadMore.addEventListener('click', () => {
         cargarRegistros(true);
     });
+
+    const btnGeneral = document.getElementById('btnGeneralReport');
+    if (btnGeneral) {
+        btnGeneral.addEventListener('click', () => {
+            if (allLoadedData.length === 0) {
+                alert('No hay datos cargados para generar el reporte general.');
+                return;
+            }
+            ReportService.generateGeneralListReport(allLoadedData, 'RONDA_MANUAL', 'REPORTE GENERAL DE RONDAS MANUALES');
+        });
+    }
 
 });

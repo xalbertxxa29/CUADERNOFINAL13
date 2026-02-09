@@ -5,10 +5,61 @@ const ReportService = {
     // Configuración
     logoUrl: 'imagenes/logo.png', // Ajustar si la ruta es diferente
 
+    // Cache de usuarios para no consultar repetidamente
+    userCache: {},
+
+    // Helper para obtener nombre de usuario
+    async resolveUserName(data) {
+        // 1. Si ya tiene nombre completo válido (no es email), usarlo
+        let userCandidates = [data.usuario, data.registradoPor, data.REGISTRADO_POR, data.USUARIO].filter(u => u);
+        let currentName = userCandidates[0] || '';
+
+        // Si parece un nombre real (tiene espacios y no tiene @), asumimos que está bien
+        if (currentName && currentName.includes(' ') && !currentName.includes('@')) {
+            return currentName.toUpperCase();
+        }
+
+        // 2. Si no, buscar email o ID para consultar
+        let idToSearch = '';
+        if (data.usuarioEmail) {
+            idToSearch = data.usuarioEmail.split('@')[0];
+        } else if (currentName.includes('@')) {
+            idToSearch = currentName.split('@')[0];
+        } else if (currentName) {
+            idToSearch = currentName; // Asumir que es el ID
+        }
+
+        if (!idToSearch) return 'DESCONOCIDO';
+
+        // 3. Consultar caché
+        if (this.userCache[idToSearch]) {
+            return this.userCache[idToSearch];
+        }
+
+        // 4. Consultar Firestore
+        try {
+            const db = firebase.firestore();
+            const doc = await db.collection('USUARIOS').doc(idToSearch).get();
+            if (doc.exists) {
+                const u = doc.data();
+                const fullName = `${u.NOMBRES || ''} ${u.APELLIDOS || ''}`.trim().toUpperCase();
+                this.userCache[idToSearch] = fullName || idToSearch;
+                return this.userCache[idToSearch];
+            }
+        } catch (e) {
+            console.warn('Error resolviendo usuario:', e);
+        }
+
+        // Fallback
+        return idToSearch.toUpperCase();
+    },
+
     // Utilidad para cargar imagen como Data URL
     async getBase64ImageFromUrl(imageUrl) {
+        if (!imageUrl) return null;
         try {
             const res = await fetch(imageUrl);
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const blob = await res.blob();
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -34,6 +85,16 @@ const ReportService = {
 
             // Cargar logo
             const logoBase64 = await this.getBase64ImageFromUrl(this.logoUrl);
+
+            // Resolver nombre de usuario antes de generar
+            // Solo si NO es lista general (que ya lo resuelve antes)
+            if (type !== 'LISTA_GENERAL') {
+                // Aunque para reports individuales sí hace falta.
+                // safe check
+                if (!docData.RESOLVED_USER) {
+                    docData.RESOLVED_USER = await this.resolveUserName(docData);
+                }
+            }
 
             // Delegar al generador específico según tipo
             switch (type) {
@@ -91,6 +152,9 @@ const ReportService = {
         const pageWidth = doc.internal.pageSize.width;
         let y = 15;
 
+        // Resolver nombre de usuario si no vino resuelto
+        const nombreUsuario = data.RESOLVED_USER || await this.resolveUserName(data);
+
         // Header
         if (logo) doc.addImage(logo, 'PNG', 15, 10, 30, 30); // Logo izq
         doc.setFontSize(16);
@@ -117,6 +181,7 @@ const ReportService = {
         this.addKeyValue(doc, 'Cliente:', (data.cliente || '').toUpperCase(), infoX1, y);
         this.addKeyValue(doc, 'Unidad:', (data.unidad || '').toUpperCase(), infoX1, y + 7);
         this.addKeyValue(doc, 'Ronda:', (data.nombre || '').toUpperCase(), infoX1, y + 14);
+        this.addKeyValue(doc, 'Usuario:', nombreUsuario, infoX1, y + 21); // Agregado Usuario
 
         // Columna 2
         const estadoColor = (data.estado === 'TERMINADA' || data.estado === 'REALIZADA') ? [0, 128, 0] : [200, 0, 0];
@@ -134,7 +199,7 @@ const ReportService = {
         this.addKeyValue(doc, 'Fecha:', fechaStr, infoX2, y + 7);
         this.addKeyValue(doc, 'Hora Inicio:', horaStr, infoX2, y + 14);
 
-        y += 25;
+        y += 32; // Ajustado por el nuevo campo
 
         // Resumen Puntos (Izquierda) y Gráfico (Derecha) -> Simple aproximación
         doc.setFontSize(12);
@@ -168,25 +233,11 @@ const ReportService = {
         doc.setFillColor(231, 76, 60); // Rojo
         doc.circle(chartX, chartY, radius, 'F');
 
-        // Si hay registrados, "pintar" la parte proporcional verde es dificil sin canvas context.
-        // Simplificación: Círculo Verde si 100%, ó visual simple.
-        // Usaremos líneas gruesas para simular arco es muy complejo en jsPDF raw.
-        // Hack: Si > 0, pintar círculo verde encima? No, eso llena todo.
-        // Mejor: Círculo verde grande = Registrados, Círculo rojo = Sin registrar? No.
-        // Solución elegante simple: Un círculo con el porcentaje en medio.
-
         // Fondo gris
         doc.setFillColor(230, 230, 230);
         doc.circle(chartX, chartY, radius, 'F');
 
-        // "Progreso" (Verde)
-        // jsPDF no tiene arc() simple con fill. Usaremos setLineWidth y lines.
-        // O mejor, dibujamos un pastel simple usando triangles? Muy complejo.
-        // Usaré un cuadrado de color verde o rojo que represente el estado global.
-        // O mejor, el texto grande del porcentaje.
-
         doc.setFillColor(registrados > 0 ? 46 : 200, registrados > 0 ? 204 : 50, registrados > 0 ? 113 : 50); // Verde o gris
-        // Dibujamos un 'pie slice' es dificil. 
         // Vamos a dibujar simplemente un círculo del color del estado mayoritario y un agujero blanco.
         const colorChart = (registrados === total) ? [46, 204, 113] : [231, 76, 60];
         doc.setFillColor(...colorChart);
@@ -261,10 +312,14 @@ const ReportService = {
     },
 
     // --- Reporte General de Lista (Tabla) ---
-    // --- Reporte General de Lista (Tabla) ---
     async generateGeneralListReport(dataList, type, title) {
-        this.showLoading('Generando reporte general...');
+        this.showLoading('Procesando usuarios y generando reporte...');
         try {
+            // Pre-procesar usuarios para obtener nombres reales
+            for (let d of dataList) {
+                d.RESOLVED_USER = await this.resolveUserName(d);
+            }
+
             const { jsPDF } = window.jspdf;
             const isRondaProg = (type === 'RONDA_PROGRAMADA');
             const orientation = isRondaProg ? 'portrait' : 'landscape';
@@ -290,31 +345,31 @@ const ReportService = {
                 let body = [];
 
                 if (type === 'RONDA_PROGRAMADA') {
-                    // Fallback or unreachable now
+                    // Handled above
                 } else if (type === 'INCIDENCIA') {
-                    columns = ['Fecha', 'Cliente', 'Unidad', 'Tipo', 'Nivel', 'Registrado Por'];
+                    columns = ['Fecha', 'Cliente', 'Unidad', 'Tipo', 'Nivel', 'Usuario'];
                     body = dataList.map(d => [
-                        this.fmtDate(d.timestamp), d.cliente, d.unidad, d.tipoIncidente, d.Nivelderiesgo, d.registradoPor || d.REGISTRADO_POR
+                        this.fmtDate(d.timestamp), d.cliente, d.unidad, d.tipoIncidente, d.Nivelderiesgo, d.RESOLVED_USER
                     ]);
                 } else if (type === 'VEHICULAR') {
-                    columns = ['Placa', 'Conductor', 'Vehículo', 'Estado', 'Ingreso', 'Salida'];
+                    columns = ['Placa', 'Conductor', 'Vehículo', 'Estado', 'Ingreso', 'Salida', 'Usuario'];
                     body = dataList.map(d => [
-                        d.placa, d.nombres, `${d.marca} ${d.modelo}`, d.estado, d.fechaIngreso, d.fechaSalida || '-'
+                        d.placa, d.nombres, `${d.marca} ${d.modelo}`, d.estado, d.fechaIngreso, d.fechaSalida || '-', d.RESOLVED_USER
                     ]);
                 } else if (type === 'PEATONAL') {
-                    columns = ['Nombre', 'Empresa', 'Tipo', 'Motivo', 'Ingreso', 'Salida'];
+                    columns = ['Nombre', 'Empresa', 'Tipo', 'Motivo', 'Ingreso', 'Salida', 'Usuario'];
                     body = dataList.map(d => [
-                        d.NOMBRES_COMPLETOS, d.EMPRESA, d.TIPO_ACCESO, d.MOTIVO, d.FECHA_INGRESO ? `${d.FECHA_INGRESO} ${d.HORA_INGRESO}` : '', d.FECHA_SALIDA ? `${d.FECHA_SALIDA} ${d.HORA_FIN}` : '-'
+                        d.NOMBRES_COMPLETOS, d.EMPRESA, d.TIPO_ACCESO, d.MOTIVO, d.FECHA_INGRESO ? `${d.FECHA_INGRESO} ${d.HORA_INGRESO}` : '', d.FECHA_SALIDA ? `${d.FECHA_SALIDA} ${d.HORA_FIN}` : '-', d.RESOLVED_USER
                     ]);
                 } else if (type === 'CONSIGNA') {
-                    columns = ['Fecha', 'Tipo', 'Título', 'Puesto', 'Vigencia'];
+                    columns = ['Fecha', 'Tipo', 'Título', 'Puesto', 'Vigencia', 'Usuario'];
                     body = dataList.map(d => [
-                        this.fmtDate(d.timestamp), d.tipo, d.titulo, d.puesto || 'General', d.inicio ? `${this.fmtDateStr(d.inicio)} al ${this.fmtDateStr(d.fin)}` : 'Indefinida'
+                        this.fmtDate(d.timestamp), d.tipo, d.titulo, d.puesto || 'General', d.inicio ? `${this.fmtDateStr(d.inicio)} al ${this.fmtDateStr(d.fin)}` : 'Indefinida', d.RESOLVED_USER
                     ]);
                 } else if (type === 'RONDA_MANUAL') {
-                    columns = ['Fecha', 'Punto', 'Usuario', 'Unidad', 'Comentario'];
+                    columns = ['Fecha', 'Punto', 'Unidad', 'Comentario', 'Usuario'];
                     body = dataList.map(d => [
-                        d.fechaHora, d.nombrePunto, d.usuario, d.unidad, d.comentario
+                        d.fechaHora, d.nombrePunto, d.unidad, d.comentario, d.RESOLVED_USER
                     ]);
                 }
 
@@ -399,7 +454,7 @@ const ReportService = {
 
         const rows = [
             ['Fecha', this.fmtDate(data.timestamp)],
-            ['Registrado Por', data.registradoPor || data.REGISTRADO_POR],
+            ['Registrado Por', data.RESOLVED_USER || data.registradoPor || data.REGISTRADO_POR],
             ['Cliente', data.cliente],
             ['Unidad', data.unidad],
             ['Nivel Riesgo', data.Nivelderiesgo],
@@ -437,7 +492,8 @@ const ReportService = {
             ['Fecha Ingreso', data.fechaIngreso],
             ['Fecha Salida', data.fechaSalida || '-'],
             ['Obs. Ingreso', data.observaciones],
-            ['Obs. Salida', data.comentarioSalida]
+            ['Obs. Salida', data.comentarioSalida],
+            ['Usuario', data.RESOLVED_USER || '']
         ];
         doc.autoTable({
             startY: 40,
@@ -466,7 +522,7 @@ const ReportService = {
             ['Area', data.AREA || ''],
             ['Ingreso', `${data.FECHA_INGRESO} ${data.HORA_INGRESO}`],
             ['Salida', data.FECHA_SALIDA ? `${data.FECHA_SALIDA} ${data.HORA_FIN}` : '-'],
-            ['Registrado Por', data.USUARIO]
+            ['Registrado Por', data.RESOLVED_USER || data.USUARIO]
         ];
         doc.autoTable({
             startY: 40,
@@ -493,7 +549,8 @@ const ReportService = {
             ['Descripción', data.descripcion],
             ['Puesto', data.puesto || 'General'],
             ['Fecha Registro', this.fmtDate(data.timestamp)],
-            ['Vigencia', data.inicio ? `${this.fmtDateStr(data.inicio)} al ${this.fmtDateStr(data.fin)}` : 'Indefinida']
+            ['Vigencia', data.inicio ? `${this.fmtDateStr(data.inicio)} al ${this.fmtDateStr(data.fin)}` : 'Indefinida'],
+            ['Usuario', data.RESOLVED_USER || data.usuario || '']
         ];
         doc.autoTable({
             startY: 40,
@@ -517,7 +574,7 @@ const ReportService = {
         const rows = [
             ['Punto', data.nombrePunto],
             ['Fecha/Hora', data.fechaHora],
-            ['Usuario', data.usuario],
+            ['Usuario', data.RESOLVED_USER || data.usuario],
             ['Unidad', data.unidad],
             ['Comentarios', data.comentario || '']
         ];

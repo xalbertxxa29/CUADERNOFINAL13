@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 3. Renderizar Card
     function crearCard(data) {
         const div = document.createElement('div');
-        div.className = 'list-card';
+        div.className = 'card-improved';
 
         let fechaTexto = data.fechaHora || 'Sin fecha';
         if (data.timestamp && data.timestamp.toDate) {
@@ -138,32 +138,70 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const nombrePunto = data.nombrePunto || 'Punto S/N';
-        const unidad = data.unidad || '--';
-        const usuario = data.usuario || '--';
+        const unidad = data.unidad || (data.respuestas && data.respuestas.unidad) || '<span class="no-data">--</span>';
+
+        // Lógica robusta para obtener el usuario (soporta estructura plana y anidada en 'respuestas')
+        let usuario = data.usuario;
+
+        // 1. Si no está en raíz, buscar en respuestas
+        if (!usuario && data.respuestas && data.respuestas.usuario) {
+            usuario = data.respuestas.usuario;
+        }
+
+        // 2. Fallback a email si no hay nombre (buscar en raiz y respuestas)
+        if (!usuario) {
+            if (data.usuarioEmail) {
+                usuario = data.usuarioEmail;
+            } else if (data.respuestas && data.respuestas.usuarioEmail) {
+                usuario = data.respuestas.usuarioEmail;
+            }
+        }
+
+        // 3. Si sigue vacío, mostrar mensaje
+        if (!usuario) {
+            usuario = '<span class="no-data">Sin usuario registrado</span>';
+        }
 
         div.innerHTML = `
-      <div class="list-card-head">
-        <h3 class="list-card-title">${nombrePunto}</h3>
-        <span class="badge badge-gray">${fechaTexto}</span>
-      </div>
-      <div class="list-card-desc">
-        <div style="font-size:0.9rem; color:var(--theme-text);">
-          <strong>Unidad:</strong> ${unidad}
-        </div>
-         <div style="font-size:0.9rem; color:var(--theme-muted); margin-top:2px;">
-          <i class="fas fa-user-circle"></i> ${usuario}
-        </div>
-      </div>
-      
-      ${data.foto ? `
-        <img src="${data.foto}" class="registro-imagen" onclick="window.open('${data.foto}', '_blank')" alt="Foto del punto">
-      ` : ''}
-      <div style="margin-top:10px; border-top:1px solid #444; padding-top:8px; text-align:right;">
-          <button class="btn-report" style="background:transparent; border:1px solid #666; color:var(--theme-text); border-radius:4px; padding:5px 10px; cursor:pointer;">
-              <i class="fas fa-file-pdf" style="color:#e74c3c;"></i> Descargar Reporte
-          </button>
-      </div>
-    `;
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-map-marker-alt" style="color:var(--primary);"></i> 
+                    ${nombrePunto}
+                </h3>
+                <span class="card-badge">
+                    <i class="far fa-clock"></i> ${fechaTexto}
+                </span>
+            </div>
+            
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Unidad</span>
+                        <div class="info-value">
+                            <i class="fas fa-building" style="color:var(--theme-muted);"></i> ${unidad}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Usuario</span>
+                        <div class="info-value">
+                            <i class="fas fa-user-circle" style="color:var(--theme-muted);"></i> ${usuario}
+                        </div>
+                    </div>
+                </div>
+
+                ${data.foto ? `
+                    <div class="card-image-container">
+                        <img src="${data.foto}" class="card-image" loading="lazy" onclick="window.open('${data.foto}', '_blank')" alt="Evidencia fotográfica">
+                    </div>
+                ` : ''}
+            </div>
+
+            <div class="card-footer">
+                <button class="btn-download btn-report">
+                    <i class="fas fa-file-pdf" style="color:#e74c3c;"></i> Descargar Reporte
+                </button>
+            </div>
+        `;
 
         div.querySelector('.btn-report').addEventListener('click', (e) => {
             e.stopPropagation();

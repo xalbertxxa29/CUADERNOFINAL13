@@ -119,6 +119,9 @@ const ReportService = {
                 case 'RONDA_MANUAL':
                     await this.buildRondaManualReport(doc, docData, logoBase64);
                     break;
+                case 'CUADERNO':
+                    await this.buildCuadernoReport(doc, docData, logoBase64);
+                    break;
                 default:
                     await this.buildGenericReport(doc, docData, logoBase64);
             }
@@ -374,6 +377,22 @@ const ReportService = {
                     body = dataList.map(d => [
                         d.fechaHora, d.nombrePunto, d.unidad, d.comentario, d.RESOLVED_USER
                     ]);
+                } else if (type === 'CUADERNO') {
+                    columns = ['Fecha', 'Tipo', 'Detalle/Comentario', 'Usuario'];
+                    body = dataList.map(d => {
+                        let detalle = d.comentario || '';
+                        if (d.tipoRegistro === 'RELEVO') {
+                            const sal = d.usuarioSaliente?.nombre || d.usuarioSaliente?.id || '-';
+                            const ent = d.usuarioEntrante?.nombre || d.usuarioEntrante?.id || '-';
+                            detalle = `Saliente: ${sal} / Entrante: ${ent}. ${detalle}`;
+                        }
+                        return [
+                            this.fmtDate(d.timestamp),
+                            d.tipoRegistro || 'REGISTRO',
+                            detalle,
+                            d.RESOLVED_USER || d.usuario || ''
+                        ];
+                    });
                 }
 
                 doc.autoTable({
@@ -629,6 +648,50 @@ const ReportService = {
         }
     },
 
+    async buildCuadernoReport(doc, data, logo) {
+        if (logo) doc.addImage(logo, 'PNG', 15, 10, 25, 25);
+
+        let title = 'REGISTRO DE CUADERNO';
+        let color = [52, 152, 219]; // Azul
+
+        if (data.tipoRegistro === 'RELEVO') {
+            title = 'RELEVO DE TURNO';
+            color = [155, 89, 182]; // Morado
+        }
+
+        doc.setFontSize(16); doc.setTextColor(...color);
+        doc.text(title, 105, 20, { align: 'center' });
+
+        const rows = [
+            ['Fecha', this.fmtDate(data.timestamp)],
+            ['Registrado Por', data.RESOLVED_USER || data.usuario || ''],
+            ['Cliente', (data.cliente || '').toUpperCase()],
+            ['Unidad', (data.unidad || '').toUpperCase()]
+        ];
+
+        if (data.tipoRegistro === 'RELEVO') {
+            const sal = data.usuarioSaliente?.nombre || data.usuarioSaliente?.id || '—';
+            const ent = data.usuarioEntrante?.nombre || data.usuarioEntrante?.id || '—';
+            rows.push(['Usuario Saliente', sal]);
+            rows.push(['Usuario Entrante', ent]);
+        }
+
+        rows.push(['Comentario/Detalle', data.comentario || '']);
+
+        doc.autoTable({
+            startY: 40,
+            body: rows,
+            theme: 'grid',
+            columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 } },
+            styles: { cellPadding: 4, fontSize: 10 }
+        });
+
+        const imgUrl = data.foto || data.fotoURL;
+        if (imgUrl) {
+            await this.addImageToDoc(doc, imgUrl);
+        }
+    },
+
     // Helper para añadir imagen común
     async addImageToDoc(doc, imgUrl) {
         try {
@@ -821,3 +884,4 @@ const ReportService = {
         document.getElementById('report-url-input').value = url;
     }
 };
+window.ReportService = ReportService;

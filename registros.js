@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------- Firebase ----------
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
-  const db   = firebase.firestore();
+  const db = firebase.firestore();
 
   // ---------- UI wrapper ----------
   const UX = {
@@ -14,24 +14,25 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ---------- DOM ----------
-  const cont         = document.getElementById('registros-container');
-  const fechaInput   = document.getElementById('fecha-filtro');
-  const btnBuscar    = document.getElementById('buscar-btn');
-  const btnLimpiar   = document.getElementById('limpiar-btn');
-  const prevBtn      = document.getElementById('prev-btn');
-  const nextBtn      = document.getElementById('next-btn');
+  const cont = document.getElementById('registros-container');
+  const fechaInput = document.getElementById('fecha-filtro');
+  const btnBuscar = document.getElementById('buscar-btn');
+  const btnLimpiar = document.getElementById('limpiar-btn');
+  const prevBtn = document.getElementById('prev-btn');
+  const nextBtn = document.getElementById('next-btn');
 
   // Lightbox
-  const lightbox       = document.getElementById('imageLightbox');
-  const lightboxImg    = document.getElementById('lightboxImg');
-  const lightboxClose  = document.querySelector('.lightbox-close');
-  const lightboxBack   = document.querySelector('.lightbox-backdrop');
+  const lightbox = document.getElementById('imageLightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const lightboxClose = document.querySelector('.lightbox-close');
+  const lightboxBack = document.querySelector('.lightbox-backdrop');
 
   // ---------- Estado ----------
   const PAGE_SIZE = 10;
   let perfil = null;            // { CLIENTE, UNIDAD }
   let lastDoc = null;           // cursor para "siguiente"
   let pageStack = [];           // pila de primeros docs por página para retroceder
+  let currentDataById = {};     // mapa id -> data para reportes
 
   // ---------- Sesión ----------
   auth.onAuthStateChanged(async (user) => {
@@ -53,13 +54,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const toDateTimeText = (ts) => {
     try {
       const date = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
-      return date ? date.toLocaleString('es-PE', { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' }) : '';
+      return date ? date.toLocaleString('es-PE', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
     } catch { return ''; }
   };
 
   const startEndOfDay = (yyyy_mm_dd) => {
     const start = new Date(`${yyyy_mm_dd}T00:00:00`);
-    const end   = new Date(`${yyyy_mm_dd}T23:59:59.999`);
+    const end = new Date(`${yyyy_mm_dd}T23:59:59.999`);
     return [start, end];
   };
 
@@ -71,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const [start, end] = startEndOfDay(fechaInput.value);
       ref = db.collection('CUADERNO')
         .where('cliente', '==', CLIENTE)
-        .where('unidad',  '==', UNIDAD)
+        .where('unidad', '==', UNIDAD)
         .where('timestamp', '>=', start)
         .where('timestamp', '<=', end)
         .orderBy('timestamp', 'desc')
@@ -79,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       ref = db.collection('CUADERNO')
         .where('cliente', '==', CLIENTE)
-        .where('unidad',  '==', UNIDAD)
+        .where('unidad', '==', UNIDAD)
         .orderBy('timestamp', 'desc')
         .limit(PAGE_SIZE);
     }
@@ -110,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function cardRegistroHTML(data) {
     const fechaTxt = toDateTimeText(data.timestamp);
-    const quien    = resolveRegistradoPor(data);
+    const quien = resolveRegistradoPor(data);
     const comentario = (data.comentario || '').replace(/\n/g, '<br>');
     const fotoHTML = onlyPhotoHTML(data);
     return `
@@ -147,18 +148,47 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function render(docs) {
+    cont.innerHTML = '';
     if (!docs.length) {
       cont.innerHTML = `<p class="muted">Sin registros.</p>`;
       return;
     }
-    const html = docs.map(d => {
+
+    docs.forEach(d => {
       const data = d.data();
-      return (data.tipoRegistro === 'RELEVO') ? cardRelevoHTML(data) : cardRegistroHTML(data);
-    }).join('');
-    cont.innerHTML = html;
+      currentDataById[d.id] = data; // Keep for safety, though used directly in closure
+
+      const tempDiv = document.createElement('div');
+      // Generar HTML base
+      tempDiv.innerHTML = (data.tipoRegistro === 'RELEVO') ? cardRelevoHTML(data) : cardRegistroHTML(data);
+      const article = tempDiv.firstElementChild;
+
+      // Agregar botón de reporte al final (estilo ver_incidencias)
+      const btnContainer = document.createElement('div');
+      btnContainer.style.cssText = "margin-top:10px; border-top:1px solid #444; padding-top:8px; text-align:right;";
+      btnContainer.innerHTML = `
+          <button class="btn-report" style="background:transparent; border:1px solid #666; color:#ccc; border-radius:4px; padding:5px 10px; cursor:pointer;">
+              <i class="fas fa-file-pdf" style="color:#e74c3c;"></i> Descargar Reporte
+          </button>
+      `;
+
+      btnContainer.querySelector('button').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (typeof ReportService !== 'undefined') {
+          ReportService.generateAndUpload(data, 'CUADERNO', 'cuaderno');
+        } else {
+          console.error('ReportService no cargado');
+          alert('Error: Servicio de reportes no disponible.');
+        }
+      });
+
+      article.appendChild(btnContainer);
+      cont.appendChild(article);
+    });
   }
 
   // ---------- Carga / paginación ----------
+  let allLoadedData = [];
   async function cargarRegistros(direction) {
     if (!perfil) return;
     UX.show('Cargando registros…');
@@ -166,6 +196,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       let cursor = null;
       if (direction === 'next') cursor = lastDoc;
+      if (direction === 'prev') {
+        // Al retroceder, limpiamos el mapa actual parcialmente? No necesario, se sobreescribe en render.
+        // Pero es buena practica resetearlo al cargar nueva pagina
+      }
+      // Resetear mapa al inicio de carga no es seguro si hay race conditions, 
+      // mejor hacerlo justo antes de render.
+
+      if (!direction) { /* Primera carga o buscar */ currentDataById = {}; allLoadedData = []; }
       if (direction === 'prev') {
         if (pageStack.length > 1) {
           pageStack.pop();
@@ -184,10 +222,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const first = snap.docs[0];
-      const last  = snap.docs[snap.docs.length - 1];
+      const last = snap.docs[snap.docs.length - 1];
       lastDoc = last;
       if (direction !== 'prev') pageStack.push(first);
 
+      snap.docs.forEach(d => allLoadedData.push(d.data()));
       render(snap.docs);
 
       prevBtn.disabled = pageStack.length <= 1;
@@ -201,6 +240,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------- Eventos ----------
+  const btnGeneral = document.getElementById('btnGeneralReport');
+  if (btnGeneral) {
+    btnGeneral.addEventListener('click', () => {
+      if (allLoadedData.length === 0) {
+        UX.alert('Aviso', 'No hay datos cargados para generar el reporte general.');
+        return;
+      }
+      if (typeof ReportService !== 'undefined') {
+        ReportService.generateGeneralListReport(allLoadedData, 'CUADERNO', 'REPORTE GENERAL DE CUADERNO');
+      } else {
+        UX.alert('Error', 'Servicio de reportes no disponible.');
+      }
+    });
+  }
+
   btnBuscar?.addEventListener('click', () => {
     pageStack = []; lastDoc = null; cargarRegistros();
   });
@@ -211,7 +265,9 @@ document.addEventListener('DOMContentLoaded', () => {
   prevBtn?.addEventListener('click', () => cargarRegistros('prev'));
 
   // Lightbox
+  // Lightbox
   cont?.addEventListener('click', (e) => {
+    // 2. Imagen Lightbox
     const img = e.target.closest('img[data-lightbox]');
     if (!img || !lightbox || !lightboxImg) return;
     lightboxImg.src = img.src;

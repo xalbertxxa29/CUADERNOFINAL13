@@ -57,6 +57,9 @@ const ReportService = {
     // Utilidad para cargar imagen como Data URL
     async getBase64ImageFromUrl(imageUrl) {
         if (!imageUrl) return null;
+        // Si ya es base64, devolver directo
+        if (imageUrl.startsWith('data:')) return imageUrl;
+
         try {
             const res = await fetch(imageUrl);
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -584,6 +587,40 @@ const ReportService = {
             theme: 'striped',
             columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 } }
         });
+
+        // Sección de Preguntas y Respuestas
+        if (data.preguntas && Object.keys(data.preguntas).length > 0) {
+            let finalY = doc.lastAutoTable.finalY + 10;
+
+            // Verificar espacio en página
+            if (finalY > 250) {
+                doc.addPage();
+                finalY = 20;
+            }
+
+            doc.setFontSize(12);
+            doc.setTextColor(41, 75, 126);
+            doc.text('CUESTIONARIO', 15, finalY);
+
+            const qaRows = [];
+            // Ordenar por índice numérico
+            Object.keys(data.preguntas).sort((a, b) => parseInt(a) - parseInt(b)).forEach(key => {
+                const pregunta = data.preguntas[key];
+                // La clave en respuestas es 'question_' + key (según estructura mostrada)
+                const respuesta = (data.respuestas && data.respuestas[`question_${key}`]) || '-';
+                qaRows.push([pregunta, respuesta]);
+            });
+
+            doc.autoTable({
+                startY: finalY + 5,
+                head: [['Pregunta', 'Respuesta']],
+                body: qaRows,
+                theme: 'grid',
+                headStyles: { fillColor: [46, 204, 113] },
+                styles: { fontSize: 10, cellPadding: 4 },
+                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 80 } } // Pregunta más ancha
+            });
+        }
 
         // Add Image
         const imgUrl = data.foto || data.fotoURL;

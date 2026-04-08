@@ -132,11 +132,10 @@ const ReportService = {
             // 3. Subir a Storage
             this.updateLoading('Subiendo reporte a la nube...');
             const storageRef = firebase.storage().ref();
-            // Nombre único: reportes/temp_{timestamp}_{random}.pdf
             const fileName = `reportes/${filenamePrefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}.pdf`;
             const fileRef = storageRef.child(fileName);
 
-            await fileRef.put(pdfBlob);
+            await fileRef.put(pdfBlob, { contentType: 'application/pdf' });
 
             // 4. Obtener URL
             this.updateLoading('Obteniendo enlace...');
@@ -147,7 +146,7 @@ const ReportService = {
             this.showLinkModal(url);
 
         } catch (e) {
-            console.error(e);
+            console.error('[ReportService] Error:', e);
             this.hideLoading();
             this.showToast('Error generando o subiendo: ' + e.message, 'error');
         }
@@ -405,21 +404,21 @@ const ReportService = {
                 });
             }
 
-            // Subida
+            // Subida a Storage
             const pdfBlob = doc.output('blob');
             this.updateLoading('Subiendo reporte general...');
             const storageRef = firebase.storage().ref();
             const fileName = `reportes/general_${type.toLowerCase()}_${Date.now()}_${Math.floor(Math.random() * 1000)}.pdf`;
             const fileRef = storageRef.child(fileName);
 
-            await fileRef.put(pdfBlob);
+            await fileRef.put(pdfBlob, { contentType: 'application/pdf' });
             this.updateLoading('Obteniendo enlace...');
             const url = await fileRef.getDownloadURL();
             this.hideLoading();
             this.showLinkModal(url);
 
         } catch (e) {
-            console.error(e);
+            console.error('[ReportService] Error:', e);
             this.hideLoading();
             this.showToast('Error: ' + e.message, 'error');
         }
@@ -882,6 +881,26 @@ const ReportService = {
         modal.querySelector('#btn-copy-main').onclick = doCopy;
 
         document.getElementById('report-url-input').value = url;
+    },
+
+    // Fallback: descarga local del Blob PDF
+    downloadBlobLocally(blob, filename) {
+        try {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 200);
+        } catch (e) {
+            console.error('[ReportService] Error en descarga local:', e);
+            this.showToast('No se pudo descargar el reporte', 'error');
+        }
     }
 };
 window.ReportService = ReportService;

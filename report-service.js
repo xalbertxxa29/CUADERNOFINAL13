@@ -77,38 +77,29 @@ const ReportService = {
         }
     },
 
-    // Guardar PDF en Firestore y generar link compartible (evita Firebase Storage)
+    // Guardar PDF en Firestore y generar link (evita Storage error 412)
     async savePdfToFirestore(pdfBlob, nombreArchivo) {
         const user = firebase.auth().currentUser;
         if (!user) throw new Error('Usuario no autenticado');
 
-        // Convertir Blob a base64
         const base64 = await new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                // Quitar el prefijo 'data:application/pdf;base64,'
-                const result = reader.result.split(',')[1];
-                resolve(result);
-            };
+            reader.onloadend = () => resolve(reader.result.split(',')[1]);
             reader.onerror = reject;
             reader.readAsDataURL(pdfBlob);
         });
 
-        // Guardar en Firestore
         const db = firebase.firestore();
         const docRef = await db.collection('REPORTES_PDF').add({
             pdfBase64: base64,
             nombre: nombreArchivo,
             creadoPor: user.email,
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            // Auto-limpiar despues de 7 dias (opcional, para no acumular)
             expira: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         });
 
-        // Construir URL compartible
         const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
-        const shareUrl = `${baseUrl}/view-report.html?id=${docRef.id}`;
-        return shareUrl;
+        return `${baseUrl}/view-report.html?id=${docRef.id}`;
     },
 
     // Generar PDF y Subir
@@ -164,7 +155,7 @@ const ReportService = {
             // 2. Convertir a Blob
             const pdfBlob = doc.output('blob');
 
-            // 3. Guardar en Firestore y generar link
+            // 3. Guardar en Firestore
             this.updateLoading('Guardando reporte...');
             const nombrePdf = `${filenamePrefix}_${Date.now()}.pdf`;
             const url = await this.savePdfToFirestore(pdfBlob, nombrePdf);
@@ -432,7 +423,7 @@ const ReportService = {
                 });
             }
 
-            // Guardar en Firestore y generar link
+            // Guardar en Firestore
             const pdfBlob = doc.output('blob');
             this.updateLoading('Guardando reporte general...');
             const nombrePdf = `general_${type.toLowerCase()}_${Date.now()}.pdf`;

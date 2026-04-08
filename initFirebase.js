@@ -91,9 +91,17 @@ if (!window.__FIREBASE_INITIALIZED__) {
     }
   });
 
-  // --- Warm-up de caché (consultas + imágenes) ---
+  // --- Warm-up de caché (consultas + imágenes) - SOLO 1 VEZ AL DÍA ---
   async function warmFirestoreCache() {
     try {
+      // OPTIMIZACIÓN: Solo ejecutar warm-up una vez al día
+      const today = new Date().toDateString();
+      const lastWarmup = localStorage.getItem('lastWarmupDate');
+      if (lastWarmup === today) {
+        console.log('[warm] Ya se precalentó hoy, saltando.');
+        return;
+      }
+
       // Espera a usuario (si no hay, no precalienta)
       await new Promise((resolve) => {
         if (auth.currentUser) return resolve();
@@ -126,28 +134,30 @@ if (!window.__FIREBASE_INITIALIZED__) {
         return;
       }
 
-      // Precache de consultas típicas (se servirán desde cache si estás offline)
+      // Precache de consultas típicas (REDUCIDO: limits menores)
       const [per, tmp, cuaderno] = await Promise.all([
         db.collection('CONSIGNA_PERMANENTE')
-          .where('cliente','==',CLIENTE).where('unidad','==',UNIDAD).limit(50).get().catch(() => ({ forEach: () => {} })),
+          .where('cliente','==',CLIENTE).where('unidad','==',UNIDAD).limit(20).get().catch(() => ({ forEach: () => {} })),
         db.collection('CONSIGNA_TEMPORAL')
-          .where('cliente','==',CLIENTE).where('unidad','==',UNIDAD).limit(50).get().catch(() => ({ forEach: () => {} })),
+          .where('cliente','==',CLIENTE).where('unidad','==',UNIDAD).limit(20).get().catch(() => ({ forEach: () => {} })),
         db.collection('CUADERNO')
           .where('cliente','==',CLIENTE).where('unidad','==',UNIDAD)
-          .orderBy('timestamp','desc').limit(30).get().catch(() => ({ forEach: () => {} })),
+          .orderBy('timestamp','desc').limit(15).get().catch(() => ({ forEach: () => {} })),
       ]);
 
-      // Precache prudente de imágenes (máx 30)
+      // Precache prudente de imágenes (máx 15)
       const urls = new Set();
       per.forEach(d => { const x=d.data && d.data(); if (x?.fotoURL) urls.add(x.fotoURL); });
       tmp.forEach(d => { const x=d.data && d.data(); if (x?.fotoURL) urls.add(x.fotoURL); });
       cuaderno.forEach(d => { const x=d.data && d.data(); if (x?.fotoURL) urls.add(x.fotoURL); });
 
-      Array.from(urls).slice(0, 30).forEach(u => {
+      Array.from(urls).slice(0, 15).forEach(u => {
         try { fetch(u, { mode: 'no-cors', cache: 'force-cache' }); } catch {}
       });
 
-      console.log('[warm] Caché de consultas + imágenes preparada');
+      // Marcar como completado hoy
+      localStorage.setItem('lastWarmupDate', today);
+      console.log('[warm] Caché de consultas + imágenes preparada (diario)');
     } catch (e) {
       console.warn('[warm] Error', e);
     }

@@ -14,7 +14,7 @@ class OfflinePhotoQueue {
     
     // Listeners para sincronización automática
     window.addEventListener('online', () => this.syncQueue());
-    setInterval(() => this.syncIfOnline(), 30000); // Reintentos cada 30s
+    setInterval(() => this.syncIfOnline(), 120000); // Reintentos cada 2min (OPTIMIZADO: era 30s)
   }
 
   // Abrir IndexedDB
@@ -183,17 +183,36 @@ class OfflinePhotoQueue {
     }
   }
 
-  // Subir foto y actualizar documento
+  // Subir foto y actualizar documento (REST API)
   async uploadPhotoAndUpdateDoc(item) {
     const { metadata, blob, mimeType } = item;
+    const photoBlob = this.arrayBufferToBlob(blob, mimeType);
     
-    // Subir a Storage
-    const blob2 = this.arrayBufferToBlob(blob, mimeType);
-    const ref = this.storage.ref().child(metadata.path);
-    
+    // Subir vía REST API
+    const user = firebase.auth().currentUser;
+    if (!user) throw new Error('Usuario no autenticado');
+    const token = await user.getIdToken();
+    const bucket = firebaseConfig.storageBucket;
+    const encodedPath = encodeURIComponent(metadata.path);
+    const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
+
     console.log(`📤 Subiendo: ${metadata.path}`);
-    await ref.put(blob2, { contentType: mimeType });
-    const url = await ref.getDownloadURL();
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': mimeType || 'image/jpeg'
+      },
+      body: photoBlob
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Upload failed (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media&token=${data.downloadTokens}`;
     
     // Actualizar documento en Firestore
     console.log(`📝 Actualizando documento: ${metadata.docId}`);

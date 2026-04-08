@@ -72,9 +72,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(blob);
   });
   async function uploadTo(p,blob){
-    const ref=storage.ref().child(p);
-    await ref.put(blob);
-    return await ref.getDownloadURL();
+    const user = auth.currentUser;
+    if (!user) throw new Error('No autenticado');
+    const token = await user.getIdToken();
+    const bucket = firebaseConfig.storageBucket;
+    const ep = encodeURIComponent(p);
+    const res = await fetch(`https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${ep}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': blob.type || 'image/jpeg' },
+      body: blob
+    });
+    if (!res.ok) throw new Error(`Upload error (${res.status})`);
+    const data = await res.json();
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${ep}?alt=media&token=${data.downloadTokens}`;
   }
 
   // Perfil

@@ -28,7 +28,7 @@ class SyncMonitor {
 
         // Iniciar bucle de monitoreo
         this.checkStatus();
-        setInterval(() => this.checkStatus(), 5000); // Revisar cada 5s
+        setInterval(() => this.checkStatus(), 30000); // Revisar cada 30s (OPTIMIZADO: era 5s)
 
         console.log('[SyncMonitor] Iniciado');
     }

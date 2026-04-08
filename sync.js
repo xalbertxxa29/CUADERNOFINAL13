@@ -15,8 +15,6 @@
   }
 
   async function uploadTo(storage, path, blobOrDataURL) {
-    const ref = storage.ref().child(path);
-
     let blob = blobOrDataURL;
     if (!(blobOrDataURL instanceof Blob)) {
       const maybe = dataURLtoBlob(blobOrDataURL);
@@ -24,8 +22,30 @@
       blob = maybe;
     }
 
-    await ref.put(blob);
-    return await ref.getDownloadURL();
+    // Subir vía REST API (evita error storage/unknown del SDK)
+    const user = firebase.auth().currentUser;
+    if (!user) throw new Error('Usuario no autenticado');
+    const token = await user.getIdToken();
+    const bucket = firebaseConfig.storageBucket;
+    const encodedPath = encodeURIComponent(path);
+    const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': blob.type || 'image/jpeg'
+      },
+      body: blob
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Upload failed (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media&token=${data.downloadTokens}`;
   }
 
   function pickBaseFolder(task) {

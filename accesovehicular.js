@@ -165,14 +165,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Subir foto a Storage
+  // Subir foto a Storage (REST API)
   async function uploadFoto(file, docId) {
     try {
       if (!navigator.onLine) return null;
+      const user = auth.currentUser;
+      if (!user) return null;
+      const token = await user.getIdToken();
+      const bucket = firebaseConfig.storageBucket;
       const path = `acceso-vehicular/${docId}/${file.name}`;
-      const ref = storage.ref().child(path);
-      await ref.put(file);
-      return await ref.getDownloadURL();
+      const ep = encodeURIComponent(path);
+      const res = await fetch(`https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${ep}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': file.type || 'image/jpeg' },
+        body: file
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${ep}?alt=media&token=${data.downloadTokens}`;
     } catch (err) {
       console.warn('No se pudo subir foto:', err.message);
       return null;

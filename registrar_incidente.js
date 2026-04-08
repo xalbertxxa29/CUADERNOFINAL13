@@ -109,42 +109,36 @@ document.addEventListener('DOMContentLoaded', () => {
   
   async function uploadTo(path, blob) {
     try {
-      console.log('[uploadTo] Iniciando subida a:', path);
-      console.log('[uploadTo] Tamaño del blob:', blob.size, 'bytes');
-      console.log('[uploadTo] Tipo de blob:', blob.type);
-      console.log('[uploadTo] Usuario autenticado:', auth.currentUser?.email);
-      
-      const ref = storage.ref().child(path);
-      console.log('[uploadTo] Referencia creada, iniciando put...');
-      
-      // Agregar metadatos
-      const metadata = {
-        contentType: 'image/jpeg',
-        customMetadata: {
-          uploadedBy: auth.currentUser?.email,
-          uploadedAt: new Date().toISOString()
-        }
-      };
-      
-      const uploadTask = await ref.put(blob, metadata);
-      console.log('[uploadTo] ✅ Upload completado, metadata:', uploadTask.metadata);
-      
-      const downloadURL = await ref.getDownloadURL();
-      console.log('[uploadTo] ✅ Download URL obtenida:', downloadURL);
+      console.log('[uploadTo] Iniciando subida REST API a:', path);
+      const user = auth.currentUser;
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const token = await user.getIdToken();
+      const bucket = firebaseConfig.storageBucket;
+      const encodedPath = encodeURIComponent(path);
+      const url = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodedPath}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': blob.type || 'image/jpeg'
+        },
+        body: blob
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('[uploadTo] ❌ REST error:', response.status, errText);
+        throw new Error(`Error al subir (${response.status})`);
+      }
+
+      const data = await response.json();
+      const downloadURL = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media&token=${data.downloadTokens}`;
+      console.log('[uploadTo] ✅ Subida exitosa:', downloadURL);
       return downloadURL;
     } catch (err) {
-      console.error('[uploadTo] ❌ Error en uploadTo');
-      console.error('[uploadTo] Código:', err.code);
-      console.error('[uploadTo] Mensaje:', err.message);
-      console.error('[uploadTo] Stack completo:', err);
-      
-      // Detalles adicionales
-      if (err.code === 'storage/unauthorized') {
-        console.error('[uploadTo] ❌ PROBLEMA: No tienes permisos en Firebase Storage');
-      } else if (err.code === 'storage/unknown') {
-        console.error('[uploadTo] ⚠️ Error desconocido de Storage. Revisa las reglas de Firestore');
-      }
-      
+      console.error('[uploadTo] ❌ Error:', err.message);
       throw err;
     }
   }

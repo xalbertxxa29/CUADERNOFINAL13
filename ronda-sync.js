@@ -17,12 +17,12 @@ class RondaSync {
       window.addEventListener('offline', () => console.log('[RondaSync] Modo offline'));
     }
 
-    // Sincronizar cada 30 segundos si estamos online
+    // Sincronizar cada 5 minutos si estamos online (OPTIMIZADO: era 30s)
     setInterval(() => {
       if (navigator.onLine && !this.syncInProgress) {
         this.sincronizar();
       }
-    }, 30000);
+    }, 300000);
 
     console.log('[RondaSync] ✓ Sistema de sincronización iniciado');
   }
@@ -41,17 +41,27 @@ class RondaSync {
         return;
       }
 
-      // Obtener nombre completo del usuario
+      // Obtener nombre completo del usuario (usando caché para evitar lecturas)
       const userId = auth.currentUser.email.split('@')[0];
       let nombreCompleto = userId; // fallback
       
       try {
-        const usuarioDoc = await db.collection('USUARIOS').doc(userId).get();
-        if (usuarioDoc.exists) {
-          const datos = usuarioDoc.data();
-          const nombres = (datos.NOMBRES || '').trim();
-          const apellidos = (datos.APELLIDOS || '').trim();
-          nombreCompleto = `${nombres} ${apellidos}`.trim();
+        // OPTIMIZADO: usar caché global en vez de leer Firestore cada vez
+        if (window.getUserProfile) {
+          const cached = await window.getUserProfile(userId);
+          if (cached) {
+            const nombres = (cached.NOMBRES || '').trim();
+            const apellidos = (cached.APELLIDOS || '').trim();
+            nombreCompleto = `${nombres} ${apellidos}`.trim();
+          }
+        } else {
+          const usuarioDoc = await db.collection('USUARIOS').doc(userId).get();
+          if (usuarioDoc.exists) {
+            const datos = usuarioDoc.data();
+            const nombres = (datos.NOMBRES || '').trim();
+            const apellidos = (datos.APELLIDOS || '').trim();
+            nombreCompleto = `${nombres} ${apellidos}`.trim();
+          }
         }
       } catch (e) {
         console.warn('[RondaSync] No se pudo obtener nombre completo:', e);

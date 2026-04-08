@@ -518,27 +518,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // === Detección de cambios de conexión (para WebView) ===
-    let lastOnlineState = navigator.onLine;
-    setInterval(() => {
-      const currentOnlineState = navigator.onLine;
-      if (!lastOnlineState && currentOnlineState) {
-        console.log('🌐 Cambio detectado: Pasó de OFFLINE a ONLINE en menu.js');
-        lastOnlineState = true;
-        // Reintentar cargar catálogos
-        cargarDatosCU();
-      } else if (lastOnlineState && !currentOnlineState) {
-        console.log('🔌 Cambio detectado: Pasó de ONLINE a OFFLINE en menu.js');
-        lastOnlineState = false;
-      }
-    }, 2000); // Verificar cada 2 segundos
+    // OPTIMIZADO: eliminado polling de 2s que causaba millones de lecturas
+    let catalogosRecargados = false;
 
     window.addEventListener('online', () => {
       console.log('🌐 Evento "online" detectado en menu.js');
-      cargarDatosCU();
+      if (!catalogosRecargados) {
+        catalogosRecargados = true;
+        cargarDatosCU();
+        // Permitir recargar de nuevo después de 60s
+        setTimeout(() => { catalogosRecargados = false; }, 60000);
+      }
     });
 
     window.addEventListener('offline', () => {
       console.log('🔌 Evento "offline" detectado en menu.js');
+      catalogosRecargados = false; // Resetear para la próxima reconexión
     });
 
   } catch (err) {

@@ -41,20 +41,19 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('No se pudo cargar datos de OfflineStorage:', e.message);
     }
 
-    // Si no están en offline storage, obtener de Firestore
+    // Si no están en offline storage, obtener de caché/Firestore
     try {
       const userId = user.email.split('@')[0];
-      const snap = await db.collection('USUARIOS').doc(userId).get();
+      const profileData = await window.getUserProfile(userId);
       
-      if (snap.exists) {
-        const datos = snap.data();
-        userCtx.cliente = datos.CLIENTE || datos.cliente || '';
-        userCtx.unidad = datos.UNIDAD || datos.unidad || '';
-        userCtx.puesto = datos.PUESTO || datos.puesto || '';
+      if (profileData) {
+        userCtx.cliente = profileData.CLIENTE || profileData.cliente || '';
+        userCtx.unidad = profileData.UNIDAD || profileData.unidad || '';
+        userCtx.puesto = profileData.PUESTO || profileData.puesto || '';
         // v73: Guardar nombre completo
-        userCtx.nombreCompleto = `${datos.NOMBRES || ''} ${datos.APELLIDOS || ''}`.trim().toUpperCase();
+        userCtx.nombreCompleto = `${profileData.NOMBRES || ''} ${profileData.APELLIDOS || ''}`.trim().toUpperCase();
         
-        console.log('✓ Datos del usuario obtenidos de Firestore', userCtx);
+        console.log('✓ Datos del usuario obtenidos de caché/Firestore', userCtx);
         
         // Guardar en offline storage para próxima vez
         if (window.OfflineStorage && userCtx.cliente && userCtx.unidad) {
@@ -62,8 +61,8 @@ document.addEventListener('DOMContentLoaded', () => {
             await window.OfflineStorage.setUserData({
               email: user.email,
               userId: userId,
-              nombres: datos.NOMBRES || datos.nombres || '',
-              apellidos: datos.APELLIDOS || datos.apellidos || '',
+              nombres: profileData.NOMBRES || profileData.nombres || '',
+              apellidos: profileData.APELLIDOS || profileData.apellidos || '',
               cliente: userCtx.cliente,
               unidad: userCtx.unidad,
               puesto: userCtx.puesto

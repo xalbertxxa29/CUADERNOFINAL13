@@ -24,11 +24,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         const userId = user.email.split('@')[0];
         try {
-            const doc = await db.collection('USUARIOS').doc(userId).get();
-            if (doc.exists) {
-                const data = doc.data();
-                userCliente = (data.CLIENTE || '').toUpperCase();
-                userUnidad = (data.UNIDAD || '').toUpperCase();
+            const profileData = await window.getUserProfile(userId);
+            if (profileData) {
+                userCliente = (profileData.CLIENTE || '').toUpperCase();
+                userUnidad = (profileData.UNIDAD || '').toUpperCase();
 
                 // Cargar registros iniciales
                 cargarRegistros();

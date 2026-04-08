@@ -37,9 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!user) { window.location.href = 'index.html'; return; }
     try {
       const userId = user.email.split('@')[0];
-      const d = await db.collection('USUARIOS').doc(userId).get();
-      if (!d.exists) throw new Error('No se encontró tu perfil.');
-      const { CLIENTE, UNIDAD } = d.data();
+      const profileData = await window.getUserProfile(userId);
+      if (!profileData) throw new Error('No se encontró tu perfil.');
+      const { CLIENTE, UNIDAD } = profileData;
       perfil = { CLIENTE, UNIDAD };
       await cargarRegistros(); // primera página
     } catch (e) {

@@ -225,16 +225,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     try {
-      const snap = await db.collection('USUARIOS').doc(userId).get();
-      if (snap.exists) {
-        const datos = snap.data();
-        userCtx.cliente = (datos.CLIENTE || '').toUpperCase();
-        userCtx.unidad = (datos.UNIDAD || '').toUpperCase();
-        userCtx.puesto = datos.PUESTO || '';
+      const profileData = await window.getUserProfile(userId);
+      if (profileData) {
+        userCtx.cliente = (profileData.CLIENTE || '').toUpperCase();
+        userCtx.unidad = (profileData.UNIDAD || '').toUpperCase();
+        userCtx.puesto = profileData.PUESTO || '';
 
         // Obtener nombre completo para búsqueda en BD
-        const nombres = (datos.NOMBRES || '').trim();
-        const apellidos = (datos.APELLIDOS || '').trim();
+        const nombres = (profileData.NOMBRES || '').trim();
+        const apellidos = (profileData.APELLIDOS || '').trim();
         const nombreCompleto = `${nombres} ${apellidos}`.trim();
 
         // Verificar si hay ronda EN_PROGRESO del usuario actual

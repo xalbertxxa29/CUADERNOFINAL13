@@ -164,10 +164,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let usuarioSalida = currentUser?.email || 'DESCONOCIDO';
         try {
           const userId = currentUser?.email.split('@')[0];
-          const userSnap = await db.collection('USUARIOS').doc(userId).get();
-          if (userSnap.exists) {
-            const userData = userSnap.data();
-            usuarioSalida = `${userData.NOMBRES || ''} ${userData.APELLIDOS || ''}`.trim().toUpperCase();
+          const profileData = await window.getUserProfile(userId);
+          if (profileData) {
+            usuarioSalida = `${profileData.NOMBRES || ''} ${profileData.APELLIDOS || ''}`.trim().toUpperCase();
           }
         } catch (e) {
           console.warn('No se pudo obtener nombre del usuario:', e);

@@ -260,11 +260,11 @@
     if (document.visibilityState === 'visible') flush();
   });
 
-  // Reintento periódico (1 min) para entornos donde 'online' no dispara
+  // Reintento periódico (5 min) para entornos donde 'online' no dispara
   setInterval(() => {
     // Evita espamear si corrió muy recientemente
-    if (Date.now() - lastRunTs > 45_000) flush();
-  }, 60_000);
+    if (Date.now() - lastRunTs > 240_000) flush();
+  }, 300_000);
 
   // Primer intento inmediato
   flush();

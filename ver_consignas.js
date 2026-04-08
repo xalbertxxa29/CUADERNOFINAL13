@@ -127,10 +127,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       UX.show('Cargando consignas…');
       const userId = user.email.split('@')[0];
-      const prof = await db.collection('USUARIOS').doc(userId).get();
-      if (!prof.exists) throw new Error('No se encontró el perfil del usuario.');
+      const profileData = await window.getUserProfile(userId);
+      if (!profileData) throw new Error('No se encontró el perfil del usuario.');
 
-      const { CLIENTE, UNIDAD } = prof.data();
+      const { CLIENTE, UNIDAD } = profileData;
       const query = (col) => db.collection(col).where('cliente', '==', CLIENTE).where('unidad', '==', UNIDAD).get();
 
       const [permsSnap, tempsSnap] = await Promise.all([query('CONSIGNA_PERMANENTE'), query('CONSIGNA_TEMPORAL')]);

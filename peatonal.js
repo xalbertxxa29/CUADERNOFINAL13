@@ -22,15 +22,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!user) { window.location.href = 'index.html'; return; }
     try {
       const id = user.email.split('@')[0];
-      const snap = await db.collection('USUARIOS').doc(id).get();
-      if (snap.exists) {
-        const d = snap.data();
+      const profileData = await window.getUserProfile(id);
+      if (profileData) {
         userCtx = {
           id,
-          cliente: d.CLIENTE || '',
-          unidad: d.UNIDAD || '',
+          cliente: profileData.CLIENTE || '',
+          unidad: profileData.UNIDAD || '',
           // v73: Guardar nombre completo
-          nombreCompleto: `${d.NOMBRES || ''} ${d.APELLIDOS || ''}`.trim().toUpperCase()
+          nombreCompleto: `${profileData.NOMBRES || ''} ${profileData.APELLIDOS || ''}`.trim().toUpperCase()
         };
       } else {
         userCtx = { id, cliente: '', unidad: '', nombreCompleto: id };
@@ -38,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
       console.error(e);
       // Fallback offline
+      const id = user.email.split('@')[0];
       if (window.offlineStorage) {
         try {
           const u = await window.offlineStorage.getUserData();

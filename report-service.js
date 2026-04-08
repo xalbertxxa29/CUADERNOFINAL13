@@ -3,7 +3,8 @@
 
 const ReportService = {
     // Configuración
-    logoUrl: 'imagenes/logo.png', // Ajustar si la ruta es diferente
+    logoUrl: 'imagenes/logo.png',
+    UPLOAD_TIMEOUT_MS: 15000, // 15 segundos máximo para subir
 
     // Cache de usuarios para no consultar repetidamente
     userCache: {},
@@ -76,6 +77,40 @@ const ReportService = {
         }
     },
 
+    // Guardar PDF en Firestore y generar link compartible (evita Firebase Storage)
+    async savePdfToFirestore(pdfBlob, nombreArchivo) {
+        const user = firebase.auth().currentUser;
+        if (!user) throw new Error('Usuario no autenticado');
+
+        // Convertir Blob a base64
+        const base64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                // Quitar el prefijo 'data:application/pdf;base64,'
+                const result = reader.result.split(',')[1];
+                resolve(result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(pdfBlob);
+        });
+
+        // Guardar en Firestore
+        const db = firebase.firestore();
+        const docRef = await db.collection('REPORTES_PDF').add({
+            pdfBase64: base64,
+            nombre: nombreArchivo,
+            creadoPor: user.email,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            // Auto-limpiar despues de 7 dias (opcional, para no acumular)
+            expira: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        });
+
+        // Construir URL compartible
+        const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+        const shareUrl = `${baseUrl}/view-report.html?id=${docRef.id}`;
+        return shareUrl;
+    },
+
     // Generar PDF y Subir
     async generateAndUpload(docData, type, filenamePrefix) {
         // Mostrar loading
@@ -129,26 +164,19 @@ const ReportService = {
             // 2. Convertir a Blob
             const pdfBlob = doc.output('blob');
 
-            // 3. Subir a Storage
-            this.updateLoading('Subiendo reporte a la nube...');
-            const storageRef = firebase.storage().ref();
-            const fileName = `reportes/${filenamePrefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}.pdf`;
-            const fileRef = storageRef.child(fileName);
+            // 3. Guardar en Firestore y generar link
+            this.updateLoading('Guardando reporte...');
+            const nombrePdf = `${filenamePrefix}_${Date.now()}.pdf`;
+            const url = await this.savePdfToFirestore(pdfBlob, nombrePdf);
 
-            await fileRef.put(pdfBlob, { contentType: 'application/pdf' });
-
-            // 4. Obtener URL
-            this.updateLoading('Obteniendo enlace...');
-            const url = await fileRef.getDownloadURL();
-
-            // 5. Mostrar Modal con Link
+            // 4. Mostrar Modal con Link
             this.hideLoading();
             this.showLinkModal(url);
 
         } catch (e) {
             console.error('[ReportService] Error:', e);
             this.hideLoading();
-            this.showToast('Error generando o subiendo: ' + e.message, 'error');
+            this.showToast('Error: ' + e.message, 'error');
         }
     },
 
@@ -404,16 +432,11 @@ const ReportService = {
                 });
             }
 
-            // Subida a Storage
+            // Guardar en Firestore y generar link
             const pdfBlob = doc.output('blob');
-            this.updateLoading('Subiendo reporte general...');
-            const storageRef = firebase.storage().ref();
-            const fileName = `reportes/general_${type.toLowerCase()}_${Date.now()}_${Math.floor(Math.random() * 1000)}.pdf`;
-            const fileRef = storageRef.child(fileName);
-
-            await fileRef.put(pdfBlob, { contentType: 'application/pdf' });
-            this.updateLoading('Obteniendo enlace...');
-            const url = await fileRef.getDownloadURL();
+            this.updateLoading('Guardando reporte general...');
+            const nombrePdf = `general_${type.toLowerCase()}_${Date.now()}.pdf`;
+            const url = await this.savePdfToFirestore(pdfBlob, nombrePdf);
             this.hideLoading();
             this.showLinkModal(url);
 
